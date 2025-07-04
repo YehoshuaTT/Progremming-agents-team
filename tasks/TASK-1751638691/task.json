@@ -1,0 +1,10 @@
+{
+    "id": "TASK-1751638691",
+    "title": "Deploy feature TASK-WORKFLOW-001-002 to staging environment",
+    "description": "Deploy feature TASK-WORKFLOW-001-002 to staging environment",
+    "parent_task_id": "TASK-WORKFLOW-001-002",
+    "status": "OPEN",
+    "created_at": "2025-07-04T17:18:11.601537",
+    "updated_at": "2025-07-04T17:18:11.601544",
+    "files": []
+}

@@ -471,6 +471,8 @@ class EnhancedOrchestrator:
         
         # Get the first agent from workflow requirements
         required_agents = context.get("required_agents", ["Product_Analyst"])
+        if not required_agents:
+            required_agents = ["Product_Analyst"]
         first_agent = required_agents[0]
         
         # Get agent knowledge package

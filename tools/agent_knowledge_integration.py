@@ -631,7 +631,29 @@ class AgentKnowledgeRegistry:
     async def get_workflow_requirements(self, workflow_type: str) -> Dict[str, Any]:
         """Get comprehensive requirements for a specific workflow"""
         if workflow_type not in self.capabilities[CapabilityType.WORKFLOW]:
-            return {}
+            # Return default workflow requirements for unknown types
+            return {
+                "workflow_info": {
+                    "name": f"Default {workflow_type}",
+                    "description": f"Default workflow for {workflow_type}",
+                    "workflow_type": workflow_type,
+                    "steps": [
+                        {"step": 1, "agent": "Product_Analyst", "task": "Requirements analysis"},
+                        {"step": 2, "agent": "Coder", "task": "Implementation"},
+                        {"step": 3, "agent": "Code_Reviewer", "task": "Code review"}
+                    ],
+                    "agent_sequence": ["Product_Analyst", "Coder", "Code_Reviewer"],
+                    "approval_gates": ["after_requirements"],
+                    "success_criteria": ["Requirements met", "Code quality standards met"],
+                    "typical_duration": "2-4 hours",
+                    "complexity_level": 5
+                },
+                "required_agents": ["Product_Analyst", "Coder", "Code_Reviewer"],
+                "required_tools": ["file_tools", "git_tools", "execution_tools"],
+                "integration_requirements": [],
+                "success_criteria": ["Requirements met", "Code quality standards met"],
+                "approval_gates": ["after_requirements"]
+            }
             
         workflow = self.capabilities[CapabilityType.WORKFLOW][workflow_type]
         
