@@ -13,6 +13,8 @@ from tools.handoff_system import HandoffPacket, ConductorRouter, TaskStatus, Nex
 from tools.agent_factory import AgentFactory, AgentOrchestrationPipeline
 from tools.checkpoint_system import checkpoint_manager, TaskCheckpoint
 from tools.error_handling import error_classifier, retry_manager, recovery_strategy, ErrorInfo
+from tools.document_summary_generator import DocumentSummaryGenerator
+from tools.section_extraction import get_document_section
 from tools import task_tools
 from tools import log_tools
 from tools import indexing_tools
@@ -32,6 +34,9 @@ class EnhancedOrchestrator:
         self.git_tools = git_tools
         self.execution_tools = execution_tools
         
+        # Initialize context optimization system
+        self.document_summary_generator = DocumentSummaryGenerator()
+        
         # Initialize intelligent systems
         self.router = ConductorRouter()
         self.agent_factory = AgentFactory()
@@ -50,6 +55,11 @@ class EnhancedOrchestrator:
         self.human_approval_queue = []
         self.error_history = []  # Track error patterns
         
+        # Context optimization settings
+        self.context_optimization_enabled = True
+        self.max_context_tokens = 16000  # Conservative limit for context
+        self.summary_cache = {}  # Cache for document summaries
+        
         # Configuration
         self.config = self._load_configuration()
         
@@ -58,7 +68,8 @@ class EnhancedOrchestrator:
             event="ORCHESTRATOR_INITIALIZED",
             data={
                 "timestamp": datetime.now().isoformat(),
-                "available_agents": self.agent_factory.list_available_agents()
+                "available_agents": self.agent_factory.list_available_agents(),
+                "context_optimization_enabled": self.context_optimization_enabled
             }
         )
     
@@ -72,6 +83,134 @@ class EnhancedOrchestrator:
             "semantic_indexing_enabled": True,
             "git_auto_push": True
         }
+    
+    def _optimize_context_for_agent(self, context: Dict[str, Any], agent_name: str) -> Dict[str, Any]:
+        """Optimize context for specific agent using multi-layered approach"""
+        if not self.context_optimization_enabled:
+            return context
+        
+        optimized_context = context.copy()
+        
+        # Generate or load summaries for relevant documents
+        if "previous_artifacts" in context:
+            optimized_context["artifact_summaries"] = self._get_artifact_summaries(
+                context["previous_artifacts"], agent_name
+            )
+        
+        # Add context tools instructions
+        optimized_context["context_tools"] = {
+            "summary_available": True,
+            "drill_down_available": True,
+            "instructions": (
+                "Use document summaries first for overview. "
+                "Request specific sections using get_document_section() only when needed. "
+                "This optimizes token usage and improves performance."
+            )
+        }
+        
+        return optimized_context
+    
+    def _get_artifact_summaries(self, artifact_paths: List[str], agent_name: str) -> List[Dict[str, Any]]:
+        """Get summaries of artifacts for context optimization"""
+        summaries = []
+        
+        for artifact_path in artifact_paths:
+            try:
+                # Check cache first
+                cache_key = f"{artifact_path}_{agent_name}"
+                if cache_key in self.summary_cache:
+                    summaries.append(self.summary_cache[cache_key])
+                    continue
+                
+                # Generate or load summary
+                summary = self.document_summary_generator.generate_summary(artifact_path)
+                
+                if summary:
+                    # Create agent-specific summary entry
+                    summary_entry = {
+                        "document_path": artifact_path,
+                        "summary": summary,
+                        "agent_context": agent_name,
+                        "generated_at": datetime.now().isoformat()
+                    }
+                    
+                    # Cache the summary
+                    self.summary_cache[cache_key] = summary_entry
+                    summaries.append(summary_entry)
+                    
+                    self.log_tools.record_log(
+                        task_id="CONTEXT_OPTIMIZATION",
+                        event="SUMMARY_GENERATED",
+                        data={
+                            "document": artifact_path,
+                            "agent": agent_name,
+                            "summary_size": len(json.dumps(summary))
+                        }
+                    )
+                
+            except Exception as e:
+                self.log_tools.record_log(
+                    task_id="CONTEXT_OPTIMIZATION_ERROR",
+                    event="SUMMARY_GENERATION_ERROR",
+                    data={
+                        "document": artifact_path,
+                        "agent": agent_name,
+                        "error": str(e)
+                    }
+                )
+        
+        return summaries
+    
+    def _estimate_context_tokens(self, context: Dict[str, Any]) -> int:
+        """Estimate total tokens in context"""
+        try:
+            import tiktoken
+            encoding = tiktoken.encoding_for_model("gpt-3.5-turbo")
+            context_str = json.dumps(context, indent=2)
+            return len(encoding.encode(context_str))
+        except:
+            # Fallback estimation
+            context_str = json.dumps(context, indent=2)
+            return len(context_str) // 4
+    
+    async def get_section_for_agent(self, document_path: str, section_id: str, agent_id: str) -> Dict[str, Any]:
+        """Get specific document section for agent (drill-down functionality)"""
+        try:
+            result = get_document_section(document_path, section_id, agent_id)
+            
+            # Log the drill-down request
+            self.log_tools.record_log(
+                task_id="CONTEXT_DRILL_DOWN",
+                event="SECTION_REQUESTED",
+                data={
+                    "document": document_path,
+                    "section_id": section_id,
+                    "agent": agent_id,
+                    "success": result["success"]
+                }
+            )
+            
+            return result
+            
+        except Exception as e:
+            self.log_tools.record_log(
+                task_id="CONTEXT_DRILL_DOWN_ERROR",
+                event="SECTION_REQUEST_ERROR",
+                data={
+                    "document": document_path,
+                    "section_id": section_id,
+                    "agent": agent_id,
+                    "error": str(e)
+                }
+            )
+            
+            return {
+                "success": False,
+                "content": "",
+                "error": f"Failed to extract section: {str(e)}",
+                "section_id": section_id,
+                "agent_id": agent_id
+            }
     
     async def start_workflow(self, request: str, workflow_type: str = "complex_ui_feature") -> str:
         """Start a new workflow based on user request"""
@@ -126,11 +265,14 @@ class EnhancedOrchestrator:
         
         task_description = f"Create detailed specification for: {context['user_request']}"
         
-        # Create agent prompt
+        # Apply context optimization for Product Analyst
+        optimized_context = self._optimize_context_for_agent(context, "Product_Analyst")
+        
+        # Create agent prompt with optimized context
         agent_prompt = self.agent_factory.create_agent_prompt(
             "Product_Analyst",
             task_description,
-            context
+            optimized_context
         )
         
         # Store task
@@ -390,11 +532,34 @@ Please respond with one of the following:
         if "context" in task_config:
             context["additional_context"] = task_config["context"]
         
-        # Create agent prompt
+        # Apply context optimization for the target agent
+        optimized_context = self._optimize_context_for_agent(context, task_config["agent"])
+        
+        # Optimize context for agent
+        context = self._optimize_context_for_agent(context, task_config["agent"])
+        
+        # Create agent prompt with optimized context
         agent_prompt = self.agent_factory.create_agent_prompt(
             task_config["agent"],
             task_config["description"],
-            context
+            optimized_context
+        )
+        
+        # Log context optimization metrics
+        original_tokens = self._estimate_context_tokens(context)
+        optimized_tokens = self._estimate_context_tokens(optimized_context)
+        
+        self.log_tools.record_log(
+            task_id="CONTEXT_OPTIMIZATION_METRICS",
+            event="CONTEXT_OPTIMIZED",
+            data={
+                "task_id": next_task_id,
+                "agent": task_config["agent"],
+                "original_tokens": original_tokens,
+                "optimized_tokens": optimized_tokens,
+                "token_reduction": original_tokens - optimized_tokens,
+                "optimization_enabled": self.context_optimization_enabled
+            }
         )
         
         # Store task
@@ -734,12 +899,23 @@ Please respond with one of the following:
         # Clean up old error history
         cutoff_time = datetime.now() - timedelta(hours=max_age_hours)
         self.error_history = [
-            error for error in self.error_history
+            error for error in self.error_history 
             if datetime.fromisoformat(error.timestamp) > cutoff_time
         ]
         
-        self.log_tools.record_log(
-            task_id="CLEANUP",
-            event="OLD_DATA_CLEANUP",
-            data={"max_age_hours": max_age_hours}
-        )
+        # Clean up old summary cache
+        self.summary_cache.clear()
+    
+    def get_context_optimization_stats(self) -> Dict[str, Any]:
+        """Get statistics about context optimization usage"""
+        return {
+            "optimization_enabled": self.context_optimization_enabled,
+            "max_context_tokens": self.max_context_tokens,
+            "cached_summaries": len(self.summary_cache),
+            "total_handoffs": len(self.handoff_history),
+            "active_workflows": len(self.active_workflows)
+        }
+    
+    async def handle_agent_context_request(self, agent_id: str, document_path: str, section_id: str) -> Dict[str, Any]:
+        """Handle context drill-down requests from agents"""
+        return await self.get_section_for_agent(document_path, section_id, agent_id)

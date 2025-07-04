@@ -1,0 +1,10 @@
+{
+    "id": "TASK-1751616019",
+    "title": "Task TASK-WORKFLOW-002-001",
+    "description": "Create detailed specification for: Second workflow",
+    "parent_task_id": "WORKFLOW-002",
+    "status": "OPEN",
+    "created_at": "2025-07-04T11:00:19.534066",
+    "updated_at": "2025-07-04T11:00:19.534069",
+    "files": []
+}

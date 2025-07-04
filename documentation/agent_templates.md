@@ -33,6 +33,60 @@ Every agent must end their work with a structured handoff packet in JSON format:
 - **SECURITY_SCAN_NEEDED**: Needs security review
 - **DEBUG_NEEDED**: Issues found, debugging required
 
+## Context Optimization Instructions
+
+**IMPORTANT: All agents now have access to optimized context delivery through document summaries.**
+
+### Using Document Summaries Instead of Full Documents
+
+You will receive structured summaries of documents instead of full content to optimize token usage. These summaries provide:
+
+- **Document Overview**: High-level description and structure
+- **Section Mapping**: Detailed breakdown of document sections with IDs
+- **Token Estimates**: Size information for each section
+- **Smart Navigation**: Ability to drill down into specific sections
+
+### Available Context Tools
+
+1. **`get_document_summary(document_path)`**: Get structured summary of any document
+   - Returns JSON with section breakdown and metadata
+   - Use this as your primary context source
+   - Example: `get_document_summary("tasks/TASK-005/spec.md")`
+
+2. **`get_document_section(document_path, section_id)`**: Extract specific section content
+   - Use when summary lacks sufficient detail for your task
+   - Only retrieve sections you actually need
+   - Example: `get_document_section("tasks/TASK-005/spec.md", "SEC-003")`
+
+3. **`list_document_sections(document_path)`**: See all available sections
+   - Helpful for exploring document structure
+   - Shows section hierarchy and summaries
+
+### Context Optimization Guidelines
+
+**DO:**
+- Start with document summaries (`get_document_summary`)
+- Analyze the summary to identify relevant sections
+- Use `get_document_section` only for sections you need
+- Focus on task-relevant content only
+
+**DON'T:**
+- Request full documents unless absolutely necessary
+- Drill down into sections that aren't relevant to your task
+- Ignore the section structure provided in summaries
+
+### Example Workflow
+
+```
+1. Receive task: "Implement user authentication API"
+2. Get summary: get_document_summary("tasks/TASK-005/spec.md")
+3. Review sections: Look for "Authentication", "API", "Security" sections
+4. Drill down: get_document_section("tasks/TASK-005/spec.md", "SEC-004")
+5. Implement: Work with precise, relevant context
+```
+
+This approach reduces context size by 60-80% while maintaining accuracy.
+
 ## Agent-Specific Templates
 
 ### Product Analyst Template
