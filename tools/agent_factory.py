@@ -99,6 +99,7 @@ class AgentFactory:
     def __init__(self):
         self.agent_configs = self._load_agent_configs()
         self.templates = {}
+        self.knowledge_registry = None  # Will be injected by orchestrator
         self._initialize_templates()
     
     def _load_agent_configs(self) -> Dict[str, Dict[str, Any]]:
@@ -174,9 +175,43 @@ class AgentFactory:
                 role_description=config["description"]
             )
     
-    def create_agent_prompt(self, agent_name: str, task_description: str, 
+    async def create_agent_prompt(self, agent_name: str, task_description: str, 
                           context: Dict[str, Any]) -> str:
         """Create a complete prompt for an agent"""
+        if agent_name not in self.templates:
+            raise ValueError(f"Unknown agent: {agent_name}")
+        
+        template = self.templates[agent_name]
+        
+        # If knowledge registry is available, enrich context with agent knowledge
+        if self.knowledge_registry:
+            try:
+                agent_knowledge = await self.knowledge_registry.generate_agent_knowledge_package(agent_name)
+                
+                # Add agent-specific knowledge to context
+                enriched_context = {
+                    **context,
+                    "agent_capabilities": agent_knowledge.get("agent_identity", {}),
+                    "available_tools": agent_knowledge.get("available_tools", []),
+                    "workflow_participation": agent_knowledge.get("workflow_participation", []),
+                    "integration_capabilities": agent_knowledge.get("integration_capabilities", []),
+                    "best_practices": agent_knowledge.get("best_practices", []),
+                    "collaboration_matrix": agent_knowledge.get("collaboration_matrix", {}),
+                    "performance_metrics": agent_knowledge.get("performance_metrics", {})
+                }
+                
+                return template.create_prompt(task_description, enriched_context)
+                
+            except Exception as e:
+                # If knowledge retrieval fails, fall back to basic prompt
+                print(f"Warning: Failed to retrieve agent knowledge for {agent_name}: {e}")
+                return template.create_prompt(task_description, context)
+        else:
+            return template.create_prompt(task_description, context)
+    
+    def create_agent_prompt_sync(self, agent_name: str, task_description: str, 
+                          context: Dict[str, Any]) -> str:
+        """Create a complete prompt for an agent (synchronous version)"""
         if agent_name not in self.templates:
             raise ValueError(f"Unknown agent: {agent_name}")
         
@@ -344,3 +379,126 @@ class AgentOrchestrationPipeline:
         ]
         
         return handoff_packet.next_step_suggestion in completion_indicators
+    
+    async def enrich_agent_template(self, agent_name: str, template_content: str) -> str:
+        """Enrich an agent template with knowledge integration information"""
+        if not self.knowledge_registry:
+            return template_content
+        
+        try:
+            # Get agent knowledge package
+            knowledge_package = await self.knowledge_registry.generate_agent_knowledge_package(agent_name)
+            
+            # Create knowledge section
+            knowledge_section = f"""
+
+## 🧠 AGENT KNOWLEDGE INTEGRATION
+
+### Available Tools
+{self._format_tools_list(knowledge_package.get('available_tools', []))}
+
+### Workflow Participation
+{self._format_workflows_list(knowledge_package.get('workflow_participation', []))}
+
+### Integration Capabilities
+{self._format_integrations_list(knowledge_package.get('integration_capabilities', []))}
+
+### Collaboration Matrix
+{self._format_collaboration_matrix(knowledge_package.get('collaboration_matrix', {}))}
+
+### Best Practices
+{self._format_best_practices_list(knowledge_package.get('best_practices', []))}
+
+### Performance Metrics
+{self._format_performance_metrics(knowledge_package.get('performance_metrics', {}))}
+
+## 🔧 TOOL USAGE GUIDELINES
+
+Each tool you have access to comes with specific usage patterns and best practices. 
+Always validate tool availability before use and follow the established patterns for consistency.
+
+## 🤝 COLLABORATION GUIDELINES
+
+Your role in workflows is well-defined. Always:
+- Provide clear handoff information to the next agent
+- Document your decisions and rationale
+- Use the established communication patterns
+- Validate your outputs before handoff
+
+"""
+            
+            # Insert knowledge section before handoff instructions
+            if "CRITICAL: You must end your response" in template_content:
+                parts = template_content.split("CRITICAL: You must end your response")
+                enhanced_template = parts[0] + knowledge_section + "\n\nCRITICAL: You must end your response" + parts[1]
+            else:
+                enhanced_template = template_content + knowledge_section
+            
+            return enhanced_template
+            
+        except Exception as e:
+            print(f"Warning: Failed to enrich template for {agent_name}: {e}")
+            return template_content
+    
+    def _format_tools_list(self, tools: List[Dict]) -> str:
+        """Format tools list for template"""
+        if not tools:
+            return "No specific tools assigned."
+        
+        formatted = []
+        for tool in tools:
+            formatted.append(f"- **{tool['name']}**: {tool['description']}")
+        return "\n".join(formatted)
+    
+    def _format_workflows_list(self, workflows: List[Dict]) -> str:
+        """Format workflows list for template"""
+        if not workflows:
+            return "No specific workflows assigned."
+        
+        formatted = []
+        for workflow in workflows:
+            formatted.append(f"- **{workflow['name']}**: {workflow['description']}")
+        return "\n".join(formatted)
+    
+    def _format_integrations_list(self, integrations: List[str]) -> str:
+        """Format integrations list for template"""
+        if not integrations:
+            return "No specific integrations assigned."
+        
+        return "\n".join([f"- {integration}" for integration in integrations])
+    
+    def _format_collaboration_matrix(self, matrix: Dict) -> str:
+        """Format collaboration matrix for template"""
+        if not matrix:
+            return "No collaboration information available."
+        
+        formatted = []
+        if matrix.get('input_from'):
+            formatted.append(f"**Receives input from**: {', '.join(matrix['input_from'])}")
+        if matrix.get('output_to'):
+            formatted.append(f"**Provides output to**: {', '.join(matrix['output_to'])}")
+        if matrix.get('peer_collaboration'):
+            formatted.append(f"**Collaborates with**: {', '.join(matrix['peer_collaboration'])}")
+        
+        return "\n".join(formatted) if formatted else "No collaboration information available."
+    
+    def _format_best_practices_list(self, practices: List[str]) -> str:
+        """Format best practices list for template"""
+        if not practices:
+            return "No specific best practices defined."
+        
+        return "\n".join([f"- {practice}" for practice in practices])
+    
+    def _format_performance_metrics(self, metrics: Dict) -> str:
+        """Format performance metrics for template"""
+        if not metrics:
+            return "No performance metrics available."
+        
+        formatted = []
+        for key, value in metrics.items():
+            if isinstance(value, float):
+                formatted.append(f"- **{key.replace('_', ' ').title()}**: {value:.2f}")
+            else:
+                formatted.append(f"- **{key.replace('_', ' ').title()}**: {value}")
+        
+        return "\n".join(formatted)

@@ -894,7 +894,7 @@ Please respond with one of the following:
         optimized_context = self._optimize_context_for_agent(context, task_config["agent"])
         
         # Create agent prompt with optimized context
-        agent_prompt = self.agent_factory.create_agent_prompt(
+        agent_prompt = await self.agent_factory.create_agent_prompt(
             task_config["agent"],
             task_config["description"],
             optimized_context
