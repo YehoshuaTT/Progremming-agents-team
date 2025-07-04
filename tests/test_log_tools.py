@@ -11,6 +11,10 @@ class TestLogTools(unittest.TestCase):
             os.remove(EXECUTION_LOG)
 
     def test_record_log(self):
+        # Clear the log file first
+        if os.path.exists(EXECUTION_LOG):
+            os.remove(EXECUTION_LOG)
+        
         record_log("TEST-001", "test_event", {"data": "test_data"})
         self.assertTrue(os.path.exists(EXECUTION_LOG))
         with open(EXECUTION_LOG, "r") as f:

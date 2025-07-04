@@ -1,0 +1,14 @@
+# Core system requirements
+pytest>=7.0.0
+pytest-asyncio>=0.21.0
+
+# Security scanning
+bandit>=1.7.0
+safety>=2.0.0
+
+# Code quality
+flake8>=6.0.0
+coverage>=7.0.0
+
+# System dependencies (if needed)
+# Add any additional dependencies your system requires

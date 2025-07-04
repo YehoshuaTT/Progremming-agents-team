@@ -77,6 +77,15 @@ class EnhancedOrchestrator:
             # Create workflow
             workflow_id = self.orchestration_pipeline.create_agent_workflow(workflow_type, context)
             
+            # Add to active workflows
+            self.active_workflows[workflow_id] = {
+                "id": workflow_id,
+                "type": workflow_type,
+                "context": context,
+                "status": "active",
+                "created_at": datetime.now().isoformat()
+            }
+            
             # Log workflow start
             self.log_tools.record_log(
                 task_id=workflow_id,
@@ -186,8 +195,18 @@ class EnhancedOrchestrator:
     def _extract_handoff_packet(self, agent_output: str) -> Optional[HandoffPacket]:
         """Extract handoff packet from agent output"""
         try:
-            # Look for JSON block in agent output
+            # Look for HANDOFF_PACKET: section in agent output
             import re
+            
+            # First try to find HANDOFF_PACKET: section
+            handoff_pattern = r'HANDOFF_PACKET:\s*(\{.*?\})'
+            matches = re.findall(handoff_pattern, agent_output, re.DOTALL)
+            
+            if matches:
+                packet_json = matches[-1]  # Take the last match
+                return HandoffPacket.from_json(packet_json)
+            
+            # Fallback: Look for JSON block in agent output
             json_pattern = r'```json\s*(\{.*?\})\s*```'
             matches = re.findall(json_pattern, agent_output, re.DOTALL)
             
