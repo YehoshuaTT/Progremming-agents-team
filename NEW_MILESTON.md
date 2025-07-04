@@ -25,6 +25,73 @@ This phase focuses on making the existing system more resilient, predictable, an
         *   Set up a simple CI pipeline using a free service like **GitHub Actions**.
         *   Configure this pipeline to automatically run your entire test suite on every `push` to the Git repository. A Pull Request will be blocked from merging if any test fails.
 
+__________
+
+**Step 1.5: Implement a Multi-Layered Context and "Drill-Down" System for Token Optimization**
+
+*   **Objective:** Dramatically reduce token consumption by avoiding the submission of entire documents as context. Instead, provide agents with high-level summaries and give them the *ability* to "drill down" into specific details only when necessary.
+*   **The Problem This Solves:** Currently, to provide context, we might feed an entire `spec.md` file to the Coder agent. This is inefficient if the Coder only needs to know about a single function defined within it. This new system will provide context "just-in-time" and "just-enough".
+
+*   **How It Will Be Implemented (The "Summary -> Drill-Down" Architecture):**
+
+    1.  **Automatic Summary Generation (The "L0" Layer):**
+        *   This will be a new responsibility for the **Librarian** agent.
+        *   Whenever a new major artifact is created (e.g., `spec.md`, `architecture.md`), the Librarian will automatically trigger a sub-task.
+        *   This sub-task uses a specialized LLM call to generate a structured summary of the document. The summary will not just be text, but a **structured map** of the document's sections.
+        *   **Example Output (`spec.md.summary.json`):**
+            ```json
+            {
+              "document_title": "Specification for User Profile Page",
+              "overall_summary": "This document outlines the features of the user profile page, including data display and user interactions.",
+              "sections": [
+                {
+                  "section_id": "SPEC-SEC-001",
+                  "title": "User Data Display",
+                  "summary": "Defines which user fields (name, email, join date) are displayed.",
+                  "token_count_estimate": 150
+                },
+                {
+                  "section_id": "SPEC-SEC-002",
+                  "title": "Post List",
+                  "summary": "Specifies the display of the user's 10 most recent posts, including title and timestamp.",
+                  "token_count_estimate": 300
+                },
+                {
+                  "section_id": "SPEC-SEC-003",
+                  "title": "API Requirements",
+                  "summary": "Details the required GET endpoint and its expected JSON response structure.",
+                  "token_count_estimate": 250
+                }
+              ]
+            }
+            ```
+        *   This summary file is saved alongside the original document.
+
+    2.  **A New "Drill-Down" Tool:**
+        *   We will create a new, critical tool available to all agents: `get_document_section(document_path, section_id)`.
+        *   This tool takes the path to the original document and a `section_id` from the summary file.
+        *   It then programmatically extracts and returns *only the text of that specific section* from the full document.
+
+    3.  **Refactoring the Agent Workflow:**
+        *   The **Orchestrator's** context-gathering process will be updated. Instead of feeding the agent the full content of `spec.md`, it will now feed it the content of `spec.md.summary.json`.
+        *   The **Agent Prompts** will be updated with a new instruction:
+            > "You will be provided with a structured summary of relevant documents. This is your 'Table of Contents'. Analyze this summary first. If the summary provides enough information to proceed, do so. If you require the full details of a specific section, use the `get_document_section` tool with the appropriate `section_id` to retrieve only the information you need. **Do not ask to read the full file unless absolutely necessary.**"
+
+*   **Example of the New Workflow in Action:**
+    1.  The **Coder** agent receives a task: "Implement the API for the user profile page."
+    2.  The Orchestrator provides it with the content of `spec.md.summary.json`.
+    3.  **Coder's Thought Process:** "My task is about the API. I see a section in the summary with `section_id: 'SPEC-SEC-003'` titled 'API Requirements'. The summary isn't detailed enough. I need the full text of that section."
+    4.  **Coder's Action:** `<tool_code>get_document_section(document_path='tasks/TASK-005/spec.md', section_id='SPEC-SEC-003')</tool_code>`
+    5.  **Result:** The Coder receives only the ~250 tokens detailing the API requirements, instead of the entire 700-token document.
+    6.  The Coder now has the precise context it needs and proceeds to write the code.
+
+*   **Benefits:**
+    *   **Massive Token/Cost Reduction:** This is the primary benefit. Context size is drastically reduced.
+    *   **Improved Focus and Accuracy:** The LLM is given a smaller, more relevant context, which reduces the chance of "hallucination" or getting confused by irrelevant parts of the document.
+    *   **Faster Performance:** Smaller prompts lead to faster API response times.
+
+__________
+
 **Step 2: Implement Caching and Memoization**
 
 *   **Objective:** Drastically reduce redundant LLM calls and tool executions, which are the primary drivers of cost and latency.
