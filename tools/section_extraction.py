@@ -15,7 +15,9 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from tools.document_summary_generator import DocumentSummaryGenerator
+from tools.tool_cache import cache_tool_output
 
+@cache_tool_output("extract_section")
 def get_document_section(document_path: str, section_id: str, agent_id: str = "unknown") -> Dict[str, Any]:
     """
     Extract a specific section from a document using its section ID.

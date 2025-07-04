@@ -11,6 +11,7 @@ from typing import Dict, List, Any, Optional, Tuple
 from pathlib import Path
 from datetime import datetime
 import tiktoken
+from tools.tool_cache import cache_tool_output
 
 class DocumentSection:
     """Represents a section within a document"""
@@ -77,6 +78,7 @@ class DocumentSummaryGenerator:
     def __init__(self):
         self.supported_formats = {'.md', '.txt', '.py', '.js', '.html', '.css', '.json'}
     
+    @cache_tool_output("generate_summary")
     def generate_summary(self, document_path: str) -> Dict[str, Any]:
         """Generate a structured summary of a document"""
         path = Path(document_path)

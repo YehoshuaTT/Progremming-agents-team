@@ -22,6 +22,7 @@ from tools import indexing_tools
 from tools import file_tools
 from tools import git_tools
 from tools import execution_tools
+from tools.handoff_cache import get_handoff_cache_manager, create_workflow_session, add_handoff_packet
 
 class EnhancedOrchestrator:
     """Enhanced orchestrator with full agent integration and intelligent routing"""
@@ -64,6 +65,9 @@ class EnhancedOrchestrator:
         # Initialize LLM caching system
         self.llm_cache = llm_cache
         self.caching_enabled = True
+        
+        # Initialize handoff caching system
+        self.handoff_cache_manager = get_handoff_cache_manager()
         
         # Configuration
         self.config = self._load_configuration()
@@ -382,7 +386,9 @@ class EnhancedOrchestrator:
             }
         )
     
-    async def process_agent_completion(self, task_id: str, agent_output: str) -> Dict[str, Any]:
+    async def process_agent_completion(self, task_id: str, agent_output: str, 
+                                      session_id: Optional[str] = None, 
+                                      is_checkpoint: bool = False) -> Dict[str, Any]:
         """Process completed agent work and route next steps"""
         try:
             # Extract handoff packet from agent output
@@ -398,12 +404,27 @@ class EnhancedOrchestrator:
                 data={
                     "agent": handoff_packet.agent_name,
                     "status": handoff_packet.status.value,
-                    "suggestion": handoff_packet.next_step_suggestion.value
+                    "suggestion": handoff_packet.next_step_suggestion.value,
+                    "session_id": session_id
                 }
             )
             
-            # Store handoff in history
+            # Store handoff in history (legacy)
             self.handoff_history.append(handoff_packet)
+            
+            # Add to handoff cache if session provided
+            if session_id:
+                add_handoff_packet(session_id, handoff_packet, is_checkpoint)
+                
+                # Update workflow status
+                if session_id in self.active_workflows:
+                    self.active_workflows[session_id]["current_agent"] = handoff_packet.agent_name
+                    self.active_workflows[session_id]["last_update"] = datetime.now().isoformat()
+                    
+                    if handoff_packet.status == TaskStatus.SUCCESS:
+                        self.active_workflows[session_id]["status"] = "progressing"
+                    elif handoff_packet.status == TaskStatus.FAILURE:
+                        self.active_workflows[session_id]["status"] = "failed"
             
             # Process artifacts
             await self._process_artifacts(handoff_packet)
@@ -419,7 +440,8 @@ class EnhancedOrchestrator:
                 event="AGENT_COMPLETION_ERROR",
                 data={
                 "task_id": task_id,
-                "error": str(e)
+                "error": str(e),
+                "session_id": session_id
             }
             )
             raise
@@ -1082,3 +1104,100 @@ Generated: {datetime.now().isoformat()}
             report += f"- **{agent}**: {count} cached entries\n"
         
         return report
+    
+    def start_workflow_session(self, workflow_name: str, initial_agent: str) -> str:
+        """Start a new workflow session with handoff caching"""
+        session_id = create_workflow_session(workflow_name, initial_agent)
+        
+        # Track in active workflows
+        self.active_workflows[session_id] = {
+            "workflow_name": workflow_name,
+            "current_agent": initial_agent,
+            "started_at": datetime.now().isoformat(),
+            "status": "active"
+        }
+        
+        self.log_tools.record_log(
+            task_id=session_id,
+            event="WORKFLOW_SESSION_STARTED",
+            data={
+                "workflow_name": workflow_name,
+                "initial_agent": initial_agent,
+                "session_id": session_id
+            }
+        )
+        
+        return session_id
+    
+    def resume_workflow_session(self, session_id: str) -> Optional[Dict[str, Any]]:
+        """Resume a paused workflow session"""
+        from tools.handoff_cache import resume_workflow, get_workflow_history
+        
+        # Get the last checkpoint
+        last_checkpoint = resume_workflow(session_id)
+        
+        if last_checkpoint:
+            # Get the full workflow history
+            history = get_workflow_history(session_id)
+            
+            # Update active workflows
+            self.active_workflows[session_id] = {
+                "workflow_name": f"resumed_{session_id}",
+                "current_agent": last_checkpoint.agent_name,
+                "resumed_at": datetime.now().isoformat(),
+                "status": "resumed"
+            }
+            
+            self.log_tools.record_log(
+                task_id=session_id,
+                event="WORKFLOW_SESSION_RESUMED",
+                data={
+                    "session_id": session_id,
+                    "last_checkpoint": last_checkpoint.completed_task_id,
+                    "history_length": len(history)
+                }
+            )
+            
+            return {
+                "session_id": session_id,
+                "last_checkpoint": last_checkpoint,
+                "history": history
+            }
+        
+        return None
+    
+    def pause_workflow_session(self, session_id: str) -> bool:
+        """Pause a workflow session"""
+        success = self.handoff_cache_manager.pause_workflow(session_id)
+        
+        if success and session_id in self.active_workflows:
+            self.active_workflows[session_id]["status"] = "paused"
+            self.active_workflows[session_id]["paused_at"] = datetime.now().isoformat()
+            
+            self.log_tools.record_log(
+                task_id=session_id,
+                event="WORKFLOW_SESSION_PAUSED",
+                data={"session_id": session_id}
+            )
+        
+        return success
+    
+    def get_handoff_cache_statistics(self) -> Dict[str, Any]:
+        """Get handoff cache statistics"""
+        return self.handoff_cache_manager.get_statistics()
+    
+    def get_resumable_workflows(self) -> List[str]:
+        """Get list of resumable workflow session IDs"""
+        return self.handoff_cache_manager.get_resumable_workflows()
+    
+    def get_workflow_sessions(self) -> Dict[str, Any]:
+        """Get information about all workflow sessions"""
+        active_sessions = self.handoff_cache_manager.get_active_workflows()
+        resumable_sessions = self.handoff_cache_manager.get_resumable_workflows()
+        
+        return {
+            "active_sessions": active_sessions,
+            "resumable_sessions": resumable_sessions,
+            "total_sessions": len(active_sessions) + len(resumable_sessions),
+            "cache_statistics": self.get_handoff_cache_statistics()
+        }
