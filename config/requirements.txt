@@ -5,6 +5,9 @@ pytest-asyncio>=0.21.0
 # Token counting for document analysis
 tiktoken>=0.5.0
 
+# Async file operations
+aiofiles>=23.0.0
+
 # Security scanning
 bandit>=1.7.0
 safety>=2.0.0

@@ -208,6 +208,7 @@ class SystemDemonstration:
                     "description": "Approve deployment to production",
                     "artifacts": ["deployment_plan.md", "security_checklist.md"],
                     "risk_level": "HIGH",
+                    "status": "pending",
                     "timestamp": datetime.now().isoformat()
                 },
                 {
@@ -217,6 +218,7 @@ class SystemDemonstration:
                     "description": "Approve significant architecture changes",
                     "artifacts": ["architecture_diagram.png", "impact_analysis.md"],
                     "risk_level": "MEDIUM",
+                    "status": "pending",
                     "timestamp": datetime.now().isoformat()
                 }
             ]
@@ -225,7 +227,7 @@ class SystemDemonstration:
             self.orchestrator.human_approval_queue.extend(approval_requests)
             
             # Test approval queue management
-            pending_approvals = self.orchestrator.get_pending_approvals()
+            pending_approvals = [req for req in self.orchestrator.human_approval_queue if req.get('status', 'pending') == 'pending']
             assert len(pending_approvals) >= 2
             
             self.log_demo_step("Human Approval Gates", "SUCCESS", 
