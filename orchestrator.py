@@ -1,6 +1,16 @@
 import queue
 from enum import Enum
-from tools.task_tools import create_new_task
+import json
+import time
+from typing import Dict, Any, List, Optional
+from datetime import datetime
+from tools.task_tools import create_new_task, TaskTools
+from tools.log_tools import LogTools
+from tools.indexing_tools import IndexingTools
+from tools.file_tools import FileTools
+from tools.git_tools import GitTools
+from tools.execution_tools import ExecutionTools
+from tools.handoff_system import HandoffPacket, ConductorRouter, TaskStatus, NextStepSuggestion
 
 class ProjectState(Enum):
     PLANNING = "PLANNING"
@@ -13,6 +23,8 @@ class Orchestrator:
     def __init__(self):
         self.state = ProjectState.PLANNING
         self.task_queue = queue.Queue()
+        self.router = ConductorRouter()
+        self.active_handoff_packets = []
         print("Orchestrator initialized.")
 
     def run(self):
@@ -77,6 +89,69 @@ class Orchestrator:
                 print("All tasks completed. Shutting down.")
                 break
 
-if __name__ == "__main__":
-    orchestrator = Orchestrator()
-    orchestrator.run()
+    def process_handoff_packet(self, handoff_packet: HandoffPacket):
+        """Process a handoff packet and route next tasks"""
+        try:
+            # Log the handoff packet
+            self.log_tools.record_log(
+                f"HANDOFF_PACKET_RECEIVED",
+                {
+                    "task_id": handoff_packet.completed_task_id,
+                    "agent": handoff_packet.agent_name,
+                    "status": handoff_packet.status.value,
+                    "suggestion": handoff_packet.next_step_suggestion.value
+                }
+            )
+            
+            # Route next tasks
+            next_tasks = self.router.route_next_task(handoff_packet)
+            
+            # Create and assign next tasks
+            for task_config in next_tasks:
+                task_id = self.create_and_assign_task(
+                    title=task_config["title"],
+                    description=task_config["description"],
+                    agent_type=task_config["agent"],
+                    priority=task_config.get("priority", "medium"),
+                    context=task_config.get("context"),
+                    artifacts=task_config.get("artifacts", [])
+                )
+                
+                self.log_tools.record_log(
+                    f"TASK_ROUTED",
+                    {
+                        "from_task": handoff_packet.completed_task_id,
+                        "to_task": task_id,
+                        "agent": task_config["agent"],
+                        "routing_reason": handoff_packet.next_step_suggestion.value
+                    }
+                )
+            
+            # Store handoff packet for reference
+            self.active_handoff_packets.append(handoff_packet)
+            
+            return next_tasks
+            
+        except Exception as e:
+            self.log_tools.record_log(
+                "HANDOFF_ROUTING_ERROR",
+                {"error": str(e), "packet": handoff_packet.to_json()}
+            )
+            raise
+    
+    def create_handoff_packet(self, task_id: str, agent_name: str, status: TaskStatus, 
+                            artifacts: List[str], suggestion: NextStepSuggestion, 
+                            notes: str, dependencies_satisfied: List[str] = None,
+                            blocking_issues: List[str] = None) -> HandoffPacket:
+        """Create a standardized handoff packet"""
+        return HandoffPacket(
+            completed_task_id=task_id,
+            agent_name=agent_name,
+            status=status,
+            artifacts_produced=artifacts,
+            next_step_suggestion=suggestion,
+            notes=notes,
+            timestamp=datetime.now().isoformat(),
+            dependencies_satisfied=dependencies_satisfied or [],
+            blocking_issues=blocking_issues or []
+        )

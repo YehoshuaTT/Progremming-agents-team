@@ -1,0 +1,27 @@
+{
+  "environment": "production",
+  "database": {
+    "host": "prod-db.example.com",
+    "port": 5432,
+    "name": "profile_db_production",
+    "user": "${DB_USER}",
+    "password": "${DB_PASSWORD}"
+  },
+  "api": {
+    "host": "0.0.0.0",
+    "port": 5000,
+    "cors_origins": ["https://app.example.com"]
+  },
+  "frontend": {
+    "api_url": "https://api.example.com",
+    "port": 3000
+  },
+  "security": {
+    "secret_key": "${SECRET_KEY}",
+    "jwt_secret": "${JWT_SECRET}"
+  },
+  "logging": {
+    "level": "WARNING",
+    "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  }
+}
