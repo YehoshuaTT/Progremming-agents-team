@@ -338,3 +338,41 @@ dist/
 *.bak
 *.backup
 *.old
+
+# Cache directories and files
+cache/
+*.cache/
+cache_*/
+llm_cache/
+tool_cache/
+handoff_cache/
+
+# Cache files
+*.cache
+*.pkl
+*.pkl.gz
+*.pickle
+
+# Demo and test files
+temp_test_file_*.txt
+*_demo.py
+!caching_system_demo.py  # Important demo - keep in git
+cache_performance_report_*.md
+test_file_*.txt
+demo_*.txt
+
+# LLM Cache specific
+llm_responses_cache.json
+cache_responses.json
+
+# Tool Cache specific
+tool_cache_data/
+cached_tools/
+
+# Handoff Cache specific
+handoff_sessions/
+workflow_sessions/
+
+# Performance reports
+cache_report_*.md
+performance_report_*.md
