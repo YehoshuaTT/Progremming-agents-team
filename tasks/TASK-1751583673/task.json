@@ -1,0 +1,10 @@
+{
+    "id": "TASK-1751583673",
+    "title": "Create Specification for User Profile Page",
+    "description": "Write a detailed functional specification for the new user profile page, including user stories and acceptance criteria.",
+    "parent_task_id": null,
+    "status": "OPEN",
+    "created_at": "2025-07-04T02:01:13.855241",
+    "updated_at": "2025-07-04T02:01:13.855262",
+    "files": []
+}

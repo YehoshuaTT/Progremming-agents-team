@@ -1,0 +1,10 @@
+{
+    "id": "TASK-1751583161",
+    "title": "Implement CSV Export Feature",
+    "description": "Write the code to export the user list to a CSV file based on the specification.",
+    "parent_task_id": "TASK-1751583146",
+    "status": "OPEN",
+    "created_at": "2025-07-04T01:52:41.455924",
+    "updated_at": "2025-07-04T01:52:41.455934",
+    "files": []
+}
