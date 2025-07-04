@@ -34,8 +34,9 @@ async def test_text_search():
     print(f'Text index keys: {list(kg.text_index.keys())}')
     
     # Check if quoted python is in index
-    if '"python"' in kg.text_index:
-        print(f'Quoted python in text index: {kg.text_index['"python"']}')
+    quoted_python = '"python"'
+    if quoted_python in kg.text_index:
+        print(f'Quoted python in text index: {kg.text_index[quoted_python]}')
 
 if __name__ == "__main__":
     asyncio.run(test_text_search())
