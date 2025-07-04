@@ -6,11 +6,13 @@ Implements the full autonomous multi-agent system as defined in master documents
 import json
 import asyncio
 from typing import Dict, Any, List, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from tools.handoff_system import HandoffPacket, ConductorRouter, TaskStatus, NextStepSuggestion
 from tools.agent_factory import AgentFactory, AgentOrchestrationPipeline
+from tools.checkpoint_system import checkpoint_manager, TaskCheckpoint
+from tools.error_handling import error_classifier, retry_manager, recovery_strategy, ErrorInfo
 from tools import task_tools
 from tools import log_tools
 from tools import indexing_tools
@@ -35,11 +37,18 @@ class EnhancedOrchestrator:
         self.agent_factory = AgentFactory()
         self.orchestration_pipeline = AgentOrchestrationPipeline(self.agent_factory)
         
+        # Initialize error handling and recovery systems
+        self.checkpoint_manager = checkpoint_manager
+        self.error_classifier = error_classifier
+        self.retry_manager = retry_manager
+        self.recovery_strategy = recovery_strategy
+        
         # State management
         self.active_workflows = {}
         self.agent_sessions = {}
         self.handoff_history = []
         self.human_approval_queue = []
+        self.error_history = []  # Track error patterns
         
         # Configuration
         self.config = self._load_configuration()
@@ -532,3 +541,205 @@ Please respond with one of the following:
     def get_pending_approvals(self) -> List[Dict[str, Any]]:
         """Get all pending human approvals"""
         return [a for a in self.human_approval_queue if a["status"] == "pending"]
+    
+    async def execute_task_with_recovery(self, task_id: str, agent_name: str, 
+                                       task_prompt: str, context: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute a task with automatic error handling and recovery"""
+        
+        # Create initial checkpoint
+        checkpoint = self.checkpoint_manager.create_checkpoint(
+            task_id=task_id,
+            workflow_id=context.get("workflow_id", "unknown"),
+            agent_name=agent_name,
+            progress_percentage=0.0,
+            state_data={"status": "starting"},
+            intermediate_results={},
+            dependencies_completed=context.get("dependencies_completed", []),
+            context=context
+        )
+        
+        max_attempts = 3
+        attempt = 0
+        
+        while attempt < max_attempts:
+            try:
+                # Update checkpoint with current attempt
+                self.checkpoint_manager.update_checkpoint(
+                    checkpoint.checkpoint_id,
+                    progress_percentage=25.0 + (attempt * 25.0),
+                    state_data={"status": "executing", "attempt": attempt + 1}
+                )
+                
+                # Execute the task
+                result = await self._execute_agent_task(agent_name, task_prompt, context)
+                
+                # Update checkpoint with success
+                self.checkpoint_manager.update_checkpoint(
+                    checkpoint.checkpoint_id,
+                    progress_percentage=100.0,
+                    state_data={"status": "completed"},
+                    intermediate_results=result
+                )
+                
+                # Clean up checkpoint after successful completion
+                self.checkpoint_manager.cleanup_completed_task(task_id)
+                
+                return result
+                
+            except Exception as e:
+                attempt += 1
+                
+                # Classify the error
+                error_info = self.error_classifier.classify_error(e, context)
+                error_info.retry_count = attempt - 1
+                
+                # Log the error
+                self.log_tools.record_log(
+                    task_id=task_id,
+                    event="TASK_ERROR",
+                    data={
+                        "error_type": error_info.error_type,
+                        "error_message": error_info.error_message,
+                        "category": error_info.category.value,
+                        "attempt": attempt,
+                        "agent": agent_name
+                    }
+                )
+                
+                # Add to error history
+                self.error_history.append(error_info)
+                
+                # Check if we should retry
+                should_retry, updated_error_info = self.retry_manager.should_retry(e, context)
+                
+                if not should_retry or attempt >= max_attempts:
+                    # Final failure - apply recovery strategy
+                    recovery_result = self.recovery_strategy.apply_recovery(error_info, context)
+                    
+                    # Update checkpoint with failure
+                    self.checkpoint_manager.update_checkpoint(
+                        checkpoint.checkpoint_id,
+                        state_data={"status": "failed", "error": error_info.error_message},
+                        last_error=error_info.error_message
+                    )
+                    
+                    if recovery_result["action"] == "escalate":
+                        # Escalate to human approval
+                        await self._escalate_to_human(task_id, error_info, recovery_result)
+                        
+                        return {
+                            "status": "escalated",
+                            "error": error_info.to_dict(),
+                            "recovery_action": recovery_result
+                        }
+                    
+                    raise Exception(f"Task failed after {max_attempts} attempts: {error_info.error_message}")
+                
+                # Calculate delay and wait
+                delay = self.retry_manager.calculate_delay(error_info)
+                
+                self.log_tools.record_log(
+                    task_id=task_id,
+                    event="TASK_RETRY",
+                    data={
+                        "attempt": attempt,
+                        "delay": delay,
+                        "error_category": error_info.category.value
+                    }
+                )
+                
+                await asyncio.sleep(delay)
+                
+                # Record failure for circuit breaker
+                self.retry_manager.record_failure(error_info)
+    
+    async def _execute_agent_task(self, agent_name: str, task_prompt: str, context: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute a single agent task (placeholder for actual implementation)"""
+        # This would be replaced with actual agent execution logic
+        # For now, simulate some work
+        await asyncio.sleep(0.1)
+        
+        # Simulate occasional failures for testing
+        import random
+        if random.random() < 0.1:  # 10% failure rate for testing
+            raise Exception("Simulated task failure")
+        
+        return {
+            "status": "completed",
+            "agent": agent_name,
+            "result": f"Task completed by {agent_name}",
+            "timestamp": datetime.now().isoformat()
+        }
+    
+    async def _escalate_to_human(self, task_id: str, error_info: ErrorInfo, recovery_result: Dict[str, Any]):
+        """Escalate failed task to human approval queue"""
+        approval_item = {
+            "task_id": task_id,
+            "error_info": error_info.to_dict(),
+            "recovery_suggestion": recovery_result,
+            "timestamp": datetime.now().isoformat(),
+            "status": "pending_human_review"
+        }
+        
+        self.human_approval_queue.append(approval_item)
+        
+        self.log_tools.record_log(
+            task_id=task_id,
+            event="HUMAN_ESCALATION",
+            data={
+                "reason": "task_failure_recovery",
+                "error_category": error_info.category.value,
+                "error_severity": error_info.severity.value
+            }
+        )
+    
+    def get_checkpoint_status(self, task_id: str) -> Optional[Dict[str, Any]]:
+        """Get current checkpoint status for a task"""
+        checkpoint = self.checkpoint_manager.get_latest_checkpoint(task_id)
+        if checkpoint:
+            return {
+                "task_id": task_id,
+                "checkpoint_id": checkpoint.checkpoint_id,
+                "progress": checkpoint.progress_percentage,
+                "status": checkpoint.state_data.get("status", "unknown"),
+                "timestamp": checkpoint.timestamp,
+                "retry_count": checkpoint.retry_count
+            }
+        return None
+    
+    def get_error_statistics(self) -> Dict[str, Any]:
+        """Get comprehensive error statistics"""
+        if not self.error_history:
+            return {"total_errors": 0, "categories": {}, "severity_distribution": {}}
+        
+        category_counts = {}
+        severity_counts = {}
+        
+        for error in self.error_history:
+            category_counts[error.category.value] = category_counts.get(error.category.value, 0) + 1
+            severity_counts[error.severity.value] = severity_counts.get(error.severity.value, 0) + 1
+        
+        return {
+            "total_errors": len(self.error_history),
+            "categories": category_counts,
+            "severity_distribution": severity_counts,
+            "recent_errors": [error.to_dict() for error in self.error_history[-5:]]
+        }
+    
+    def cleanup_old_data(self, max_age_hours: int = 24):
+        """Clean up old checkpoints and error history"""
+        # Clean up old checkpoints
+        self.checkpoint_manager.cleanup_old_checkpoints(max_age_hours)
+        
+        # Clean up old error history
+        cutoff_time = datetime.now() - timedelta(hours=max_age_hours)
+        self.error_history = [
+            error for error in self.error_history
+            if datetime.fromisoformat(error.timestamp) > cutoff_time
+        ]
+        
+        self.log_tools.record_log(
+            task_id="CLEANUP",
+            event="OLD_DATA_CLEANUP",
+            data={"max_age_hours": max_age_hours}
+        )
