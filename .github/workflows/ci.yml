@@ -37,6 +37,20 @@ jobs:
         if [ -f config/requirements.txt ]; then pip install -r config/requirements.txt; fi
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
     
+    - name: Create required directories
+      run: |
+        mkdir -p logs
+        mkdir -p cache/handoff
+        mkdir -p cache/llm
+        mkdir -p cache/tools
+        mkdir -p checkpoints
+        mkdir -p sandbox/temp
+        mkdir -p sandbox/logs
+        mkdir -p sandbox/shared
+        mkdir -p sandbox/agents
+        mkdir -p sandbox/dependencies
+        mkdir -p sandbox/templates
+    
     - name: Verify Installation and Imports
       run: |
         python ci_validation.py

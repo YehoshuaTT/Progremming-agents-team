@@ -7,6 +7,9 @@ EXECUTION_LOG = os.path.join(LOGS_DIR, "execution.log")
 
 def record_log(task_id: str, event: str, data: dict):
     """Records a structured log entry."""
+    # Ensure logs directory exists
+    os.makedirs(LOGS_DIR, exist_ok=True)
+    
     log_entry = {
         "timestamp": datetime.now().isoformat(),
         "task_id": task_id,

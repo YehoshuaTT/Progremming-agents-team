@@ -34,6 +34,28 @@ def validate_environment():
     print(f"Working Directory: {Path.cwd()}")
     print()
     
+    # Create required directories
+    print("📁 Creating Required Directories:")
+    required_dirs = [
+        "logs",
+        "cache/handoff",
+        "cache/llm", 
+        "cache/tools",
+        "checkpoints",
+        "sandbox/temp",
+        "sandbox/logs",
+        "sandbox/shared",
+        "sandbox/agents",
+        "sandbox/dependencies",
+        "sandbox/templates"
+    ]
+    
+    for dir_path in required_dirs:
+        Path(dir_path).mkdir(parents=True, exist_ok=True)
+        print(f"✅ Created/Verified: {dir_path}")
+    
+    print()
+    
     # Test core dependencies
     dependencies = [
         ("pytest", "Testing Framework"),
