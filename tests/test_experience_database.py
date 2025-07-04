@@ -3,6 +3,7 @@ Comprehensive test suite for the Experience Database and Pattern Recognition sys
 """
 
 import pytest
+import pytest_asyncio
 import asyncio
 import tempfile
 import os
@@ -18,7 +19,7 @@ from tools.pattern_recognition import PatternRecognitionEngine
 class TestExperienceDatabase:
     """Test suite for ExperienceDatabase"""
     
-    @pytest.fixture
+    @pytest_asyncio.fixture
     async def temp_db(self):
         """Create a temporary database for testing"""
         temp_dir = tempfile.mkdtemp()
@@ -62,9 +63,7 @@ class TestExperienceDatabase:
         assert temp_db.db_path.exists()
         
         # Test that tables are created
-        async with temp_db.db_path.open() as f:
-            # Just check the file exists and is not empty
-            assert temp_db.db_path.stat().st_size > 0
+        assert temp_db.db_path.stat().st_size > 0
     
     @pytest.mark.asyncio
     async def test_log_experience(self, temp_db, sample_experience):
@@ -252,7 +251,7 @@ class TestExperienceDatabase:
 class TestPatternRecognitionEngine:
     """Test suite for PatternRecognitionEngine"""
     
-    @pytest.fixture
+    @pytest_asyncio.fixture
     async def temp_db_with_data(self):
         """Create a temporary database with sample data"""
         temp_dir = tempfile.mkdtemp()
@@ -292,7 +291,7 @@ class TestPatternRecognitionEngine:
             os.remove(db_path)
         os.rmdir(temp_dir)
     
-    @pytest.fixture
+    @pytest_asyncio.fixture
     async def pattern_engine(self, temp_db_with_data):
         """Create a pattern recognition engine with test data"""
         return PatternRecognitionEngine(temp_db_with_data)
