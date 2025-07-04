@@ -97,36 +97,57 @@ class EnhancedOrchestrator:
     
     def _optimize_context_for_agent(self, context: Dict[str, Any], agent_name: str) -> Dict[str, Any]:
         """Optimize context for specific agent using multi-layered approach"""
+        # Validate parameters
+        if not context or not isinstance(context, dict):
+            raise ValueError("context must be a non-empty dictionary")
+        
+        if not agent_name or not isinstance(agent_name, str):
+            raise ValueError("agent_name must be a non-empty string")
+        
         if not self.context_optimization_enabled:
-            return context
+            return context.copy()
         
-        optimized_context = context.copy()
-        
-        # Generate or load summaries for relevant documents
-        if "previous_artifacts" in context:
-            # Replace full artifacts with summaries
-            optimized_context["artifact_summaries"] = self._get_artifact_summaries(
-                context["previous_artifacts"], agent_name
+        try:
+            optimized_context = context.copy()
+            
+            # Generate or load summaries for relevant documents
+            if "previous_artifacts" in context:
+                # Replace full artifacts with summaries
+                optimized_context["artifact_summaries"] = self._get_artifact_summaries(
+                    context["previous_artifacts"], agent_name
+                )
+                # Remove the original full artifacts to save tokens
+                del optimized_context["previous_artifacts"]
+            
+            # Remove full document content if present (simulates real scenario)
+            if "artifact_content" in optimized_context:
+                del optimized_context["artifact_content"]
+            
+            # Add context tools instructions
+            optimized_context["context_tools"] = {
+                "summary_available": True,
+                "drill_down_available": True,
+                "instructions": (
+                    "Use document summaries first for overview. "
+                    "Request specific sections using get_document_section() only when needed. "
+                    "This optimizes token usage and improves performance."
+                )
+            }
+            
+            return optimized_context
+            
+        except Exception as e:
+            self.log_tools.record_log(
+                task_id="CONTEXT_OPTIMIZATION_ERROR",
+                event="CONTEXT_OPTIMIZATION_ERROR",
+                data={
+                    "agent": agent_name,
+                    "error": str(e),
+                    "timestamp": datetime.now().isoformat()
+                }
             )
-            # Remove the original full artifacts to save tokens
-            del optimized_context["previous_artifacts"]
-        
-        # Remove full document content if present (simulates real scenario)
-        if "artifact_content" in optimized_context:
-            del optimized_context["artifact_content"]
-        
-        # Add context tools instructions
-        optimized_context["context_tools"] = {
-            "summary_available": True,
-            "drill_down_available": True,
-            "instructions": (
-                "Use document summaries first for overview. "
-                "Request specific sections using get_document_section() only when needed. "
-                "This optimizes token usage and improves performance."
-            )
-        }
-        
-        return optimized_context
+            # Return original context if optimization fails
+            return context.copy()
     
     def _get_artifact_summaries(self, artifact_paths: List[str], agent_name: str) -> List[Dict[str, Any]]:
         """Get summaries of artifacts for context optimization"""
@@ -233,38 +254,81 @@ class EnhancedOrchestrator:
     async def execute_llm_call_with_cache(self, agent_name: str, prompt: str, 
                                         context: Dict[str, Any] = None) -> str:
         """Execute LLM call with intelligent caching"""
+        # Validate parameters
+        if not agent_name or not isinstance(agent_name, str):
+            raise ValueError("agent_name must be a non-empty string")
+        
+        if not prompt or not isinstance(prompt, str):
+            raise ValueError("prompt must be a non-empty string")
+        
+        if context is None:
+            context = {}
+        
         if not self.caching_enabled:
             return await self._execute_llm_call_direct(agent_name, prompt, context)
         
         # Try to get cached response
-        cached_response = self.llm_cache.get_llm_response(agent_name, prompt, context)
-        if cached_response:
+        try:
+            cached_response = self.llm_cache.get_llm_response(agent_name, prompt, context)
+            if cached_response:
+                self.log_tools.record_log(
+                    task_id="LLM_CACHE_HIT",
+                    event="LLM_CACHE_HIT",
+                    data={
+                        "agent": agent_name,
+                        "prompt_size": len(prompt),
+                        "cached_response_size": len(cached_response),
+                        "timestamp": datetime.now().isoformat()
+                    }
+                )
+                return cached_response
+        except Exception as e:
+            # Log cache error but continue with direct call
             self.log_tools.record_log(
-                task_id="LLM_CACHE_HIT",
-                event="LLM_CACHE_HIT",
+                task_id="LLM_CACHE_ERROR",
+                event="LLM_CACHE_GET_ERROR",
                 data={
                     "agent": agent_name,
-                    "prompt_size": len(prompt),
-                    "cached_response_size": len(cached_response),
+                    "error": str(e),
                     "timestamp": datetime.now().isoformat()
                 }
             )
-            return cached_response
         
         # Execute LLM call
         response = await self._execute_llm_call_direct(agent_name, prompt, context)
         
         # Cache the response
         if response:
-            success = self.llm_cache.cache_llm_response(agent_name, prompt, response, context)
-            if success:
+            try:
+                success = self.llm_cache.cache_llm_response(agent_name, prompt, response, context)
+                if success:
+                    self.log_tools.record_log(
+                        task_id="LLM_CACHE_STORE",
+                        event="LLM_CACHE_STORE",
+                        data={
+                            "agent": agent_name,
+                            "prompt_size": len(prompt),
+                            "response_size": len(response),
+                            "timestamp": datetime.now().isoformat()
+                        }
+                    )
+                else:
+                    self.log_tools.record_log(
+                        task_id="LLM_CACHE_STORE_FAILED",
+                        event="LLM_CACHE_STORE_FAILED",
+                        data={
+                            "agent": agent_name,
+                            "timestamp": datetime.now().isoformat()
+                        }
+                    )
+            except Exception as e:
+                # Log cache error but don't fail the call
                 self.log_tools.record_log(
-                    task_id="LLM_CACHE_STORE",
-                    event="LLM_CACHE_STORE",
+                    task_id="LLM_CACHE_ERROR",
+                    event="LLM_CACHE_STORE_ERROR",
                     data={
                         "agent": agent_name,
-                        "prompt_size": len(prompt),
-                        "response_size": len(response),
+                        "error": str(e),
                         "timestamp": datetime.now().isoformat()
                     }
                 )
@@ -274,6 +338,16 @@ class EnhancedOrchestrator:
     async def _execute_llm_call_direct(self, agent_name: str, prompt: str, 
                                      context: Dict[str, Any] = None) -> str:
         """Execute direct LLM call (placeholder for actual implementation)"""
+        # Validate parameters
+        if not agent_name or not isinstance(agent_name, str):
+            raise ValueError("agent_name must be a non-empty string")
+        
+        if not prompt or not isinstance(prompt, str):
+            raise ValueError("prompt must be a non-empty string")
+        
+        if context is None:
+            context = {}
+        
         # This would be replaced with actual LLM API call
         # For now, simulate with agent factory prompt processing
         
@@ -299,6 +373,13 @@ class EnhancedOrchestrator:
     
     async def start_workflow(self, request: str, workflow_type: str = "complex_ui_feature") -> str:
         """Start a new workflow based on user request"""
+        # Validate input parameters
+        if not request or not isinstance(request, str):
+            raise ValueError("request must be a non-empty string")
+        
+        if not workflow_type or not isinstance(workflow_type, str):
+            raise ValueError("workflow_type must be a non-empty string")
+        
         try:
             # Create initial context
             context = {
@@ -310,13 +391,19 @@ class EnhancedOrchestrator:
             # Create workflow
             workflow_id = self.orchestration_pipeline.create_agent_workflow(workflow_type, context)
             
+            # Validate workflow_id was created
+            if not workflow_id:
+                raise ValueError("Failed to create workflow ID")
+            
             # Add to active workflows
             self.active_workflows[workflow_id] = {
                 "id": workflow_id,
                 "type": workflow_type,
                 "context": context,
                 "status": "active",
-                "created_at": datetime.now().isoformat()
+                "created_at": datetime.now().isoformat(),
+                "current_agent": "Product_Analyst",
+                "current_phase": "specification"
             }
             
             # Log workflow start
@@ -339,12 +426,23 @@ class EnhancedOrchestrator:
             self.log_tools.record_log(
                 task_id="WORKFLOW_START_ERROR",
                 event="WORKFLOW_START_ERROR",
-                data={"error": str(e)}
+                data={
+                    "error": str(e),
+                    "request": request,
+                    "workflow_type": workflow_type
+                }
             )
-            raise
+            raise Exception(f"Failed to start workflow: {str(e)}")
     
     async def _assign_initial_task(self, workflow_id: str, context: Dict[str, Any]):
         """Assign the initial task in a workflow"""
+        # Validate parameters
+        if not workflow_id:
+            raise ValueError("workflow_id cannot be empty")
+        
+        if not context:
+            raise ValueError("context cannot be empty")
+        
         # Create specification task for Product Analyst
         task_id = f"TASK-{workflow_id}-001"
         
@@ -353,38 +451,53 @@ class EnhancedOrchestrator:
         # Apply context optimization for Product Analyst
         optimized_context = self._optimize_context_for_agent(context, "Product_Analyst")
         
-        # Create agent prompt with optimized context
-        agent_prompt = self.agent_factory.create_agent_prompt(
-            "Product_Analyst",
-            task_description,
-            optimized_context
-        )
-        
-        # Store task
-        task_data = {
-            "id": task_id,
-            "workflow_id": workflow_id,
-            "agent": "Product_Analyst",
-            "description": task_description,
-            "prompt": agent_prompt,
-            "status": "assigned",
-            "created_at": datetime.now().isoformat()
-        }
-        
-        self.task_tools.create_new_task(
-            title=f"Task {task_id}",
-            description=task_description,
-            parent_task_id=workflow_id
-        )
-        
-        self.log_tools.record_log(
-            task_id=task_id,
-            event="TASK_ASSIGNED",
-            data={
+        try:
+            # Create agent prompt with optimized context
+            agent_prompt = self.agent_factory.create_agent_prompt(
+                "Product_Analyst",
+                task_description,
+                optimized_context
+            )
+            
+            # Store task
+            task_data = {
+                "id": task_id,
                 "workflow_id": workflow_id,
-                "agent": "Product_Analyst"
+                "agent": "Product_Analyst",
+                "description": task_description,
+                "prompt": agent_prompt,
+                "status": "assigned",
+                "created_at": datetime.now().isoformat()
             }
-        )
+            
+            # Create task using task tools
+            self.task_tools.create_new_task(
+                title=f"Task {task_id}",
+                description=task_description,
+                parent_task_id=workflow_id
+            )
+            
+            # Log task assignment
+            self.log_tools.record_log(
+                task_id=task_id,
+                event="TASK_ASSIGNED",
+                data={
+                    "workflow_id": workflow_id,
+                    "agent": "Product_Analyst",
+                    "task_description": task_description
+                }
+            )
+            
+        except Exception as e:
+            self.log_tools.record_log(
+                task_id="TASK_ASSIGNMENT_ERROR",
+                event="TASK_ASSIGNMENT_ERROR",
+                data={
+                    "workflow_id": workflow_id,
+                    "error": str(e)
+                }
+            )
+            raise Exception(f"Failed to assign initial task: {str(e)}")
     
     async def process_agent_completion(self, task_id: str, agent_output: str, 
                                       session_id: Optional[str] = None, 
@@ -448,6 +561,14 @@ class EnhancedOrchestrator:
     
     def _extract_handoff_packet(self, agent_output: str) -> Optional[HandoffPacket]:
         """Extract handoff packet from agent output"""
+        if not agent_output or not agent_output.strip():
+            self.log_tools.record_log(
+                task_id="HANDOFF_EXTRACTION_ERROR",
+                event="HANDOFF_EXTRACTION_ERROR",
+                data={"error": "Agent output is empty"}
+            )
+            return None
+            
         try:
             # Look for HANDOFF_PACKET: section in agent output
             import re
@@ -468,20 +589,41 @@ class EnhancedOrchestrator:
                 packet_json = matches[-1]  # Take the last JSON block
                 return HandoffPacket.from_json(packet_json)
             
+            self.log_tools.record_log(
+                task_id="HANDOFF_EXTRACTION_WARNING",
+                event="HANDOFF_EXTRACTION_WARNING",
+                data={"error": "No handoff packet found in agent output"}
+            )
             return None
             
         except Exception as e:
             self.log_tools.record_log(
                 task_id="HANDOFF_EXTRACTION_ERROR",
                 event="HANDOFF_EXTRACTION_ERROR",
-                data={"error": str(e)}
+                data={"error": str(e), "output_length": len(agent_output)}
             )
             return None
     
     async def _process_artifacts(self, handoff_packet: HandoffPacket):
         """Process artifacts produced by agent"""
+        if not handoff_packet or not handoff_packet.artifacts_produced:
+            self.log_tools.record_log(
+                task_id="ARTIFACT_PROCESSING_WARNING",
+                event="ARTIFACT_PROCESSING_WARNING",
+                data={"message": "No artifacts to process"}
+            )
+            return
+            
         for artifact_path in handoff_packet.artifacts_produced:
             try:
+                if not artifact_path or not artifact_path.strip():
+                    self.log_tools.record_log(
+                        task_id="ARTIFACT_PROCESSING_WARNING",
+                        event="ARTIFACT_PROCESSING_WARNING",
+                        data={"message": "Empty artifact path"}
+                    )
+                    continue
+                    
                 # Verify artifact exists
                 if Path(artifact_path).exists():
                     # Index artifact for semantic search
@@ -489,46 +631,95 @@ class EnhancedOrchestrator:
                         await self._index_artifact(artifact_path)
                     
                     self.log_tools.record_log(
-                task_id="ARTIFACT_PROCESSED",
-                event="ARTIFACT_PROCESSED",
-                data={
-                        "artifact": artifact_path,
-                        "task": handoff_packet.completed_task_id
-                    }
-            )
+                        task_id="ARTIFACT_PROCESSED",
+                        event="ARTIFACT_PROCESSED",
+                        data={
+                            "artifact": artifact_path,
+                            "task": handoff_packet.completed_task_id,
+                            "agent": handoff_packet.agent_name
+                        }
+                    )
                 else:
                     self.log_tools.record_log(
-                task_id="ARTIFACT_MISSING",
-                event="ARTIFACT_MISSING",
-                data={
-                        "artifact": artifact_path,
-                        "task": handoff_packet.completed_task_id
-                    }
-            )
+                        task_id="ARTIFACT_MISSING",
+                        event="ARTIFACT_MISSING",
+                        data={
+                            "artifact": artifact_path,
+                            "task": handoff_packet.completed_task_id,
+                            "agent": handoff_packet.agent_name
+                        }
+                    )
                     
             except Exception as e:
                 self.log_tools.record_log(
-                task_id="ARTIFACT_PROCESSING_ERROR",
-                event="ARTIFACT_PROCESSING_ERROR",
-                data={
-                    "artifact": artifact_path,
-                    "error": str(e)
-                }
-            )
+                    task_id="ARTIFACT_PROCESSING_ERROR",
+                    event="ARTIFACT_PROCESSING_ERROR",
+                    data={
+                        "artifact": artifact_path,
+                        "error": str(e),
+                        "task": handoff_packet.completed_task_id
+                    }
+                )
     
     async def _index_artifact(self, artifact_path: str):
         """Index artifact for semantic search"""
+        if not artifact_path or not artifact_path.strip():
+            self.log_tools.record_log(
+                task_id="INDEXING_ERROR",
+                event="INDEXING_ERROR",
+                data={"error": "Empty artifact path"}
+            )
+            return
+            
         try:
-            content = Path(artifact_path).read_text()
+            artifact_file = Path(artifact_path)
+            
+            if not artifact_file.exists():
+                self.log_tools.record_log(
+                    task_id="INDEXING_ERROR",
+                    event="INDEXING_ERROR",
+                    data={"error": f"Artifact file does not exist: {artifact_path}"}
+                )
+                return
+                
+            if not artifact_file.is_file():
+                self.log_tools.record_log(
+                    task_id="INDEXING_ERROR",
+                    event="INDEXING_ERROR",
+                    data={"error": f"Artifact path is not a file: {artifact_path}"}
+                )
+                return
+                
+            content = artifact_file.read_text(encoding='utf-8')
+            
+            if not content.strip():
+                self.log_tools.record_log(
+                    task_id="INDEXING_WARNING",
+                    event="INDEXING_WARNING",
+                    data={"message": f"Artifact file is empty: {artifact_path}"}
+                )
+                return
+                
             self.indexing_tools.index_document(artifact_path, content)
+            
+            self.log_tools.record_log(
+                task_id="INDEXING_SUCCESS",
+                event="INDEXING_SUCCESS",
+                data={
+                    "artifact": artifact_path,
+                    "content_length": len(content)
+                }
+            )
+            
         except Exception as e:
             self.log_tools.record_log(
                 task_id="INDEXING_ERROR",
                 event="INDEXING_ERROR",
                 data={
-                "artifact": artifact_path,
-                "error": str(e)
-            }
+                    "artifact": artifact_path,
+                    "error": str(e),
+                    "error_type": type(e).__name__
+                }
             )
     
     async def _route_next_tasks(self, handoff_packet: HandoffPacket) -> Dict[str, Any]:
@@ -638,9 +829,6 @@ Please respond with one of the following:
         # Apply context optimization for the target agent
         optimized_context = self._optimize_context_for_agent(context, task_config["agent"])
         
-        # Optimize context for agent
-        context = self._optimize_context_for_agent(context, task_config["agent"])
-        
         # Create agent prompt with optimized context
         agent_prompt = self.agent_factory.create_agent_prompt(
             task_config["agent"],
@@ -706,6 +894,12 @@ Please respond with one of the following:
     
     async def process_human_approval(self, approval_id: str, decision: str) -> Dict[str, Any]:
         """Process human approval decision"""
+        if not approval_id or not approval_id.strip():
+            raise ValueError("approval_id cannot be empty")
+            
+        if not decision or not decision.strip():
+            raise ValueError("decision cannot be empty")
+            
         # Find approval request
         approval_request = None
         for req in self.human_approval_queue:
@@ -715,16 +909,34 @@ Please respond with one of the following:
         
         if not approval_request:
             raise ValueError(f"Approval request not found: {approval_id}")
+            
+        if approval_request["status"] != "pending":
+            raise ValueError(f"Approval request {approval_id} is not pending (status: {approval_request['status']})")
         
-        # Process decision
-        if decision.upper() == "APPROVE":
-            return await self._handle_approval_approved(approval_request)
-        elif decision.upper().startswith("CHANGES:"):
-            return await self._handle_approval_changes(approval_request, decision)
-        elif decision.upper().startswith("REJECT:"):
-            return await self._handle_approval_rejected(approval_request, decision)
-        else:
-            raise ValueError(f"Invalid decision format: {decision}")
+        try:
+            # Process decision
+            decision_upper = decision.upper().strip()
+            
+            if decision_upper == "APPROVE":
+                return await self._handle_approval_approved(approval_request)
+            elif decision_upper.startswith("CHANGES:"):
+                return await self._handle_approval_changes(approval_request, decision)
+            elif decision_upper.startswith("REJECT:"):
+                return await self._handle_approval_rejected(approval_request, decision)
+            else:
+                raise ValueError(f"Invalid decision format: {decision}. Expected 'APPROVE', 'CHANGES: [feedback]', or 'REJECT: [reason]'")
+                
+        except Exception as e:
+            self.log_tools.record_log(
+                task_id="HUMAN_APPROVAL_ERROR",
+                event="HUMAN_APPROVAL_ERROR",
+                data={
+                    "approval_id": approval_id,
+                    "decision": decision,
+                    "error": str(e)
+                }
+            )
+            raise
     
     async def _handle_approval_approved(self, approval_request: Dict[str, Any]) -> Dict[str, Any]:
         """Handle approved decision"""
@@ -793,8 +1005,12 @@ Please respond with one of the following:
     
     def get_workflow_status(self, workflow_id: str) -> Dict[str, Any]:
         """Get current status of a workflow"""
+        # Validate input
+        if not workflow_id or not isinstance(workflow_id, str):
+            raise ValueError("workflow_id must be a non-empty string")
+        
         if workflow_id not in self.active_workflows:
-            return {"error": "Workflow not found"}
+            raise ValueError(f"Workflow not found: {workflow_id}")
         
         workflow = self.active_workflows[workflow_id]
         
@@ -813,10 +1029,13 @@ Please respond with one of the following:
         return {
             "workflow_id": workflow_id,
             "status": workflow.get("status", "unknown"),
-            "current_phase": workflow.get("current_phase", 0),
+            "current_agent": workflow.get("current_agent", "unknown"),
+            "current_phase": workflow.get("current_phase", "unknown"),
+            "created_at": workflow.get("created_at", "unknown"),
             "total_handoffs": len(related_handoffs),
             "pending_approvals": len(pending_approvals),
-            "last_activity": related_handoffs[-1].timestamp if related_handoffs else None
+            "last_activity": related_handoffs[-1].timestamp if related_handoffs else None,
+            "workflow_type": workflow.get("type", "unknown")
         }
     
     def get_pending_approvals(self) -> List[Dict[str, Any]]:
@@ -1009,18 +1228,60 @@ Please respond with one of the following:
     
     def cleanup_old_data(self, max_age_hours: int = 24):
         """Clean up old checkpoints and error history"""
-        # Clean up old checkpoints
-        self.checkpoint_manager.cleanup_old_checkpoints(max_age_hours)
-        
-        # Clean up old error history
-        cutoff_time = datetime.now() - timedelta(hours=max_age_hours)
-        self.error_history = [
-            error for error in self.error_history 
-            if datetime.fromisoformat(error.timestamp) > cutoff_time
-        ]
-        
-        # Clean up old summary cache
-        self.summary_cache.clear()
+        if max_age_hours <= 0:
+            raise ValueError("max_age_hours must be positive")
+            
+        try:
+            # Clean up old checkpoints
+            self.checkpoint_manager.cleanup_old_checkpoints(max_age_hours)
+            
+            # Clean up old error history
+            cutoff_time = datetime.now() - timedelta(hours=max_age_hours)
+            old_error_count = len(self.error_history)
+            
+            self.error_history = [
+                error for error in self.error_history 
+                if datetime.fromisoformat(error.timestamp) > cutoff_time
+            ]
+            
+            # Clean up old summary cache
+            old_cache_size = len(self.summary_cache)
+            self.summary_cache.clear()
+            
+            # Clean up old workflows (keep active ones)
+            old_workflows = {}
+            for workflow_id, workflow in self.active_workflows.items():
+                workflow_time = datetime.fromisoformat(workflow.get("created_at", datetime.now().isoformat()))
+                if datetime.now() - workflow_time > timedelta(hours=max_age_hours):
+                    if workflow.get("status") not in ["active", "pending"]:
+                        old_workflows[workflow_id] = workflow
+            
+            # Remove old inactive workflows
+            for workflow_id in old_workflows:
+                del self.active_workflows[workflow_id]
+            
+            self.log_tools.record_log(
+                task_id="CLEANUP_COMPLETED",
+                event="CLEANUP_COMPLETED",
+                data={
+                    "max_age_hours": max_age_hours,
+                    "errors_cleaned": old_error_count - len(self.error_history),
+                    "cache_entries_cleaned": old_cache_size,
+                    "workflows_cleaned": len(old_workflows),
+                    "remaining_workflows": len(self.active_workflows)
+                }
+            )
+            
+        except Exception as e:
+            self.log_tools.record_log(
+                task_id="CLEANUP_ERROR",
+                event="CLEANUP_ERROR",
+                data={
+                    "max_age_hours": max_age_hours,
+                    "error": str(e)
+                }
+            )
+            raise
     
     def get_context_optimization_stats(self) -> Dict[str, Any]:
         """Get statistics about context optimization usage"""

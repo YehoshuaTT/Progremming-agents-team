@@ -15,7 +15,7 @@ import sys
 # Add the project root to the path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from enhanced_orchestrator import EnhancedOrchestrator
+from core.enhanced_orchestrator import EnhancedOrchestrator
 from tools.handoff_system import HandoffPacket, TaskStatus, NextStepSuggestion
 
 class TestContextIntegration(unittest.TestCase):

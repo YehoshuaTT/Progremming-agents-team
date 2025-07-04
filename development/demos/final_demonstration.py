@@ -5,11 +5,15 @@ Complete end-to-end demonstration of the implemented system
 
 import asyncio
 import json
+import sys
 from datetime import datetime
 from pathlib import Path
 
+# Add the project root to the Python path
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
 # Import all system components
-from enhanced_orchestrator import EnhancedOrchestrator
+from core.enhanced_orchestrator import EnhancedOrchestrator
 from tools.handoff_system import HandoffPacket, TaskStatus, NextStepSuggestion
 from tools.agent_factory import AgentFactory
 from tools import task_tools, log_tools, file_tools

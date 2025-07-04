@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 
 from tools.checkpoint_system import TaskCheckpoint, CheckpointManager
 from tools.error_handling import ErrorClassifier, RetryManager, RecoveryStrategy, ErrorCategory, ErrorSeverity
-from enhanced_orchestrator import EnhancedOrchestrator
+from core.enhanced_orchestrator import EnhancedOrchestrator
 
 
 class TestCheckpointSystem:

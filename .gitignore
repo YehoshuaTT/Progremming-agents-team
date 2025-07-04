@@ -9,20 +9,15 @@ develop-eggs/
 dist/
 downloads/
 
-# Debug files (temporary)
-debug_*.py
-debug_commands.py
-debug_execution.py
-debug_rate_limit.py
-debug_section_extraction.py
+# Debug files (temporary) - moved to development/debug/
+development/debug/debug_*.py
 
 # Temporary files and logs
 *.log
-security.log
-execution.log
-checkpoints/
 logs/
-tasks/
+runtime/
+checkpoints/
+cache/
 sandbox/
 demo_workspace/
 workspace/temp/
@@ -32,10 +27,10 @@ workspace/logs/
 *.summary.json
 *.md.summary.json
 
-# Analysis and cleanup files
-CLEANUP_ANALYSIS.md
-IMPLEMENTATION_COMPLETE.md
-Implementation_Status_Report_EN.md
+# Analysis and cleanup files moved to reports/
+reports/completion/
+reports/performance/
+reports/fixes/
 eggs/
 .eggs/
 lib/

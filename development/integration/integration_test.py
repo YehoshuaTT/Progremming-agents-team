@@ -5,9 +5,14 @@ Demonstrates the complete autonomous multi-agent workflow
 
 import asyncio
 import json
+import sys
 from datetime import datetime
 from pathlib import Path
-from enhanced_orchestrator import EnhancedOrchestrator
+
+# Add the project root to the Python path
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
+from core.enhanced_orchestrator import EnhancedOrchestrator
 from tools.handoff_system import HandoffPacket, TaskStatus, NextStepSuggestion
 
 class IntegrationTestRunner:

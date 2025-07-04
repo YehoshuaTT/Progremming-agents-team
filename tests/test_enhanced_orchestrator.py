@@ -12,7 +12,7 @@ from unittest.mock import Mock, patch, MagicMock
 import tempfile
 import shutil
 
-from enhanced_orchestrator import EnhancedOrchestrator
+from core.enhanced_orchestrator import EnhancedOrchestrator
 from tools.handoff_system import HandoffPacket, TaskStatus, NextStepSuggestion
 
 class TestEnhancedOrchestrator:
@@ -28,7 +28,7 @@ class TestEnhancedOrchestrator:
     @pytest.fixture
     def orchestrator(self, temp_workspace):
         """Create orchestrator instance for testing"""
-        with patch('enhanced_orchestrator.Path') as mock_path:
+        with patch('core.enhanced_orchestrator.Path') as mock_path:
             mock_path.return_value = Path(temp_workspace)
             orchestrator = EnhancedOrchestrator()
             return orchestrator
