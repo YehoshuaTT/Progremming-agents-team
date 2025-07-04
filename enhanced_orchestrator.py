@@ -1560,7 +1560,10 @@ Generated: {datetime.now().isoformat()}
             event="AGENT_KNOWLEDGE_VALIDATION",
             data={
                 "agent_name": agent_name,
-                "validation_results": validation_results
+                "tools_accessible": validation_results.get("tools_accessible", False),
+                "workflows_understood": validation_results.get("workflows_understood", False),
+                "validation_timestamp": validation_results.get("validation_timestamp", datetime.now()).isoformat() if validation_results.get("validation_timestamp") else datetime.now().isoformat(),
+                "issues_count": len(validation_results.get("issues", []))
             }
         )
         
@@ -1593,25 +1596,34 @@ Generated: {datetime.now().isoformat()}
         
         for agent_name in all_agents:
             try:
-                validation_results[agent_name] = await self.validate_agent_knowledge(agent_name)
+                validation_result = await self.validate_agent_knowledge(agent_name)
+                validation_results[agent_name] = validation_result
             except Exception as e:
                 validation_results[agent_name] = {
                     "error": str(e),
+                    "tools_accessible": False,
+                    "workflows_understood": False,
                     "validation_failed": True
                 }
         
         # Generate summary report
         summary = {
             "total_agents": len(all_agents),
-            "validated_agents": len([r for r in validation_results.values() if not r.get("validation_failed", False)]),
-            "failed_validations": len([r for r in validation_results.values() if r.get("validation_failed", False)]),
+            "validated_agents": len([r for r in validation_results.values() 
+                                   if r.get("tools_accessible", False) and r.get("workflows_understood", False)]),
+            "failed_validations": len([r for r in validation_results.values() 
+                                     if not (r.get("tools_accessible", False) and r.get("workflows_understood", False))]),
             "validation_details": validation_results
         }
         
         self.log_tools.record_log(
             task_id="SYSTEM_VALIDATION",
             event="ALL_AGENTS_KNOWLEDGE_VALIDATION",
-            data=summary
+            data={
+                "total_agents": summary["total_agents"],
+                "validated_agents": summary["validated_agents"],
+                "failed_validations": summary["failed_validations"]
+            }
         )
         
         return summary

@@ -384,6 +384,113 @@ class AgentKnowledgeRegistry:
                 success_criteria=["Performance metrics improved", "No functionality regression", "Monitoring in place"],
                 typical_duration="1-2 hours",
                 complexity_level=6
+            ),
+            
+            "ui_ux_design": WorkflowCapability(
+                name="UI/UX Design Workflow",
+                description="User interface and experience design process",
+                workflow_type="ui_ux_design",
+                steps=[
+                    {"step": 1, "agent": "Product_Analyst", "task": "User requirements analysis"},
+                    {"step": 2, "agent": "UX_UI_Designer", "task": "User research and analysis"},
+                    {"step": 3, "agent": "UX_UI_Designer", "task": "Wireframing and prototyping"},
+                    {"step": 4, "agent": "UX_UI_Designer", "task": "Design validation"},
+                    {"step": 5, "agent": "Coder", "task": "UI implementation"},
+                    {"step": 6, "agent": "Tester", "task": "User experience testing"}
+                ],
+                agent_sequence=["Product_Analyst", "UX_UI_Designer", "Coder", "Tester"],
+                approval_gates=["after_design", "after_implementation"],
+                success_criteria=["User-friendly design", "Accessibility compliance", "Positive user feedback"],
+                typical_duration="2-3 hours",
+                complexity_level=7
+            ),
+            
+            "testing_workflow": WorkflowCapability(
+                name="Comprehensive Testing Workflow",
+                description="Complete testing strategy and execution",
+                workflow_type="testing_workflow",
+                steps=[
+                    {"step": 1, "agent": "Tester", "task": "Test strategy planning"},
+                    {"step": 2, "agent": "Tester", "task": "Test case development"},
+                    {"step": 3, "agent": "Tester", "task": "Automated test implementation"},
+                    {"step": 4, "agent": "Tester", "task": "Test execution"},
+                    {"step": 5, "agent": "QA_Guardian", "task": "Quality validation"},
+                    {"step": 6, "agent": "Debugger", "task": "Issue investigation"}
+                ],
+                agent_sequence=["Tester", "QA_Guardian", "Debugger"],
+                approval_gates=["after_test_planning", "after_execution"],
+                success_criteria=["All tests passing", "Coverage requirements met", "Quality standards satisfied"],
+                typical_duration="1-2 hours",
+                complexity_level=6
+            ),
+            
+            "version_control_workflow": WorkflowCapability(
+                name="Version Control and Release Management",
+                description="Git operations and release management workflow",
+                workflow_type="version_control_workflow",
+                steps=[
+                    {"step": 1, "agent": "Git_Agent", "task": "Branch management"},
+                    {"step": 2, "agent": "Git_Agent", "task": "Code integration"},
+                    {"step": 3, "agent": "Code_Reviewer", "task": "Pull request review"},
+                    {"step": 4, "agent": "Git_Agent", "task": "Merge and tagging"},
+                    {"step": 5, "agent": "DevOps_Specialist", "task": "Release deployment"}
+                ],
+                agent_sequence=["Git_Agent", "Code_Reviewer", "DevOps_Specialist"],
+                approval_gates=["before_merge", "before_release"],
+                success_criteria=["Clean merge", "No conflicts", "Successful deployment"],
+                typical_duration="30-60 minutes",
+                complexity_level=4
+            ),
+            
+            "documentation_workflow": WorkflowCapability(
+                name="Documentation Creation and Maintenance",
+                description="Comprehensive documentation workflow",
+                workflow_type="documentation_workflow",
+                steps=[
+                    {"step": 1, "agent": "Technical_Writer", "task": "Documentation planning"},
+                    {"step": 2, "agent": "Technical_Writer", "task": "Content creation"},
+                    {"step": 3, "agent": "Technical_Writer", "task": "Review and editing"},
+                    {"step": 4, "agent": "Product_Analyst", "task": "Content validation"}
+                ],
+                agent_sequence=["Technical_Writer", "Product_Analyst"],
+                approval_gates=["after_planning", "before_publishing"],
+                success_criteria=["Complete documentation", "Accuracy verified", "User-friendly format"],
+                typical_duration="1-2 hours",
+                complexity_level=3
+            ),
+            
+            "information_workflow": WorkflowCapability(
+                name="Information Retrieval and Guidance",
+                description="Knowledge search and guidance provision workflow",
+                workflow_type="information_workflow",
+                steps=[
+                    {"step": 1, "agent": "Ask_Agent", "task": "Query analysis"},
+                    {"step": 2, "agent": "Ask_Agent", "task": "Information search"},
+                    {"step": 3, "agent": "Ask_Agent", "task": "Response compilation"},
+                    {"step": 4, "agent": "Ask_Agent", "task": "Guidance provision"}
+                ],
+                agent_sequence=["Ask_Agent"],
+                approval_gates=[],
+                success_criteria=["Accurate information", "Relevant guidance", "Clear response"],
+                typical_duration="5-15 minutes",
+                complexity_level=2
+            ),
+            
+            "guidance_workflow": WorkflowCapability(
+                name="Expert Consultation and Guidance",
+                description="Expert consultation and decision support workflow",
+                workflow_type="guidance_workflow",
+                steps=[
+                    {"step": 1, "agent": "Ask_Agent", "task": "Problem analysis"},
+                    {"step": 2, "agent": "Ask_Agent", "task": "Expert consultation"},
+                    {"step": 3, "agent": "Ask_Agent", "task": "Recommendation formulation"},
+                    {"step": 4, "agent": "Ask_Agent", "task": "Guidance delivery"}
+                ],
+                agent_sequence=["Ask_Agent"],
+                approval_gates=[],
+                success_criteria=["Expert-level guidance", "Actionable recommendations", "Clear direction"],
+                typical_duration="10-30 minutes",
+                complexity_level=3
             )
         }
         
@@ -490,29 +597,29 @@ class AgentKnowledgeRegistry:
         agent_definitions = {
             "Product_Analyst": {
                 "primary_role": "Requirements analysis and specification creation",
-                "capabilities": ["requirements_gathering", "stakeholder_analysis", "specification_writing"],
-                "tools": ["document_analysis", "user_story_creation", "acceptance_criteria"],
-                "integrates_with": ["Architect", "UX_UI_Designer"],
-                "workflow_participation": ["complex_ui_feature", "performance_optimization"],
-                "knowledge_access": ["domain_knowledge", "user_requirements", "market_research"]
+                "capabilities": ["requirements_gathering", "stakeholder_analysis", "specification_writing", "user_story_creation", "acceptance_criteria"],
+                "tools": ["document_analysis", "user_story_creation", "acceptance_criteria", "requirements_validation", "stakeholder_communication"],
+                "integrates_with": ["Architect", "UX_UI_Designer", "Technical_Writer"],
+                "workflow_participation": ["complex_ui_feature", "performance_optimization", "simple_linear_feature"],
+                "knowledge_access": ["domain_knowledge", "user_requirements", "market_research", "business_processes"]
             },
             
             "Architect": {
                 "primary_role": "System design and technical architecture",
-                "capabilities": ["system_design", "architecture_patterns", "technology_selection"],
-                "tools": ["design_patterns", "architecture_documentation", "technology_assessment"],
-                "integrates_with": ["Product_Analyst", "Coder", "DevOps_Specialist"],
-                "workflow_participation": ["complex_ui_feature", "security_update", "performance_optimization"],
-                "knowledge_access": ["architecture_patterns", "best_practices", "technology_trends"]
+                "capabilities": ["system_design", "architecture_patterns", "technology_selection", "scalability_planning", "integration_design"],
+                "tools": ["design_patterns", "architecture_documentation", "technology_assessment", "system_modeling", "performance_analysis"],
+                "integrates_with": ["Product_Analyst", "Coder", "DevOps_Specialist", "Security_Specialist"],
+                "workflow_participation": ["complex_ui_feature", "security_update", "performance_optimization", "system_architecture"],
+                "knowledge_access": ["architecture_patterns", "best_practices", "technology_trends", "scalability_strategies"]
             },
             
             "Coder": {
                 "primary_role": "Code implementation and development",
-                "capabilities": ["code_writing", "algorithm_implementation", "debugging"],
-                "tools": ["development_frameworks", "code_generation", "testing_tools"],
-                "integrates_with": ["Architect", "Code_Reviewer", "QA_Guardian"],
+                "capabilities": ["code_writing", "algorithm_implementation", "debugging", "refactoring", "optimization"],
+                "tools": ["development_frameworks", "code_generation", "testing_tools", "debugging_tools", "version_control"],
+                "integrates_with": ["Architect", "Code_Reviewer", "QA_Guardian", "Tester"],
                 "workflow_participation": ["complex_ui_feature", "bug_fix", "security_update", "performance_optimization"],
-                "knowledge_access": ["code_patterns", "implementation_examples", "api_documentation"]
+                "knowledge_access": ["code_patterns", "implementation_examples", "api_documentation", "coding_standards"]
             },
             
             "Code_Reviewer": {
@@ -547,7 +654,7 @@ class AgentKnowledgeRegistry:
                 "capabilities": ["documentation_writing", "knowledge_organization", "user_guides"],
                 "tools": ["documentation_generators", "knowledge_bases", "content_management"],
                 "integrates_with": ["Product_Analyst", "Architect", "Coder"],
-                "workflow_participation": ["complex_ui_feature"],
+                "workflow_participation": ["complex_ui_feature", "documentation_workflow"],
                 "knowledge_access": ["documentation_standards", "technical_writing", "knowledge_organization"]
             },
             
@@ -556,26 +663,53 @@ class AgentKnowledgeRegistry:
                 "capabilities": ["security_analysis", "vulnerability_assessment", "security_hardening"],
                 "tools": ["security_scanners", "vulnerability_databases", "security_frameworks"],
                 "integrates_with": ["Code_Reviewer", "Architect", "DevOps_Specialist"],
-                "workflow_participation": ["complex_ui_feature", "security_update"],
+                "workflow_participation": ["complex_ui_feature", "security_update", "security_audit"],
                 "knowledge_access": ["security_standards", "threat_intelligence", "security_patterns"]
             },
             
             "Debugger": {
                 "primary_role": "Issue diagnosis and resolution",
-                "capabilities": ["problem_diagnosis", "root_cause_analysis", "troubleshooting"],
-                "tools": ["debugging_tools", "log_analysis", "performance_profiling"],
+                "capabilities": ["problem_diagnosis", "root_cause_analysis", "troubleshooting", "log_analysis", "performance_debugging"],
+                "tools": ["debugging_tools", "log_analysis", "performance_profiling", "diagnostic_tools", "monitoring_systems"],
                 "integrates_with": ["Coder", "QA_Guardian", "DevOps_Specialist"],
-                "workflow_participation": ["bug_fix"],
-                "knowledge_access": ["debugging_strategies", "common_issues", "diagnostic_techniques"]
+                "workflow_participation": ["bug_fix", "performance_optimization", "testing_workflow"],
+                "knowledge_access": ["debugging_strategies", "common_issues", "diagnostic_techniques", "troubleshooting_guides"]
+            },
+            
+            "UX_UI_Designer": {
+                "primary_role": "User experience and interface design",
+                "capabilities": ["ui_design", "ux_research", "wireframing", "prototyping", "user_flow_design"],
+                "tools": ["design_tools", "wireframing_tools", "prototyping_frameworks", "user_testing", "design_systems"],
+                "integrates_with": ["Product_Analyst", "Architect", "Coder"],
+                "workflow_participation": ["complex_ui_feature", "ui_ux_design", "user_experience_optimization"],
+                "knowledge_access": ["design_patterns", "user_experience_best_practices", "accessibility_guidelines", "design_systems"]
+            },
+            
+            "Tester": {
+                "primary_role": "Test development and quality assurance",
+                "capabilities": ["test_design", "test_automation", "quality_validation", "test_strategy", "bug_detection"],
+                "tools": ["testing_frameworks", "test_automation_tools", "quality_metrics", "bug_tracking", "performance_testing"],
+                "integrates_with": ["Coder", "QA_Guardian", "Code_Reviewer"],
+                "workflow_participation": ["complex_ui_feature", "bug_fix", "testing_workflow", "ui_ux_design"],
+                "knowledge_access": ["testing_strategies", "quality_standards", "test_patterns", "automation_best_practices"]
+            },
+            
+            "Git_Agent": {
+                "primary_role": "Version control and code management",
+                "capabilities": ["version_control", "branch_management", "merge_management", "code_history", "collaboration_workflows"],
+                "tools": ["git_operations", "branch_management", "merge_tools", "version_tracking", "collaboration_tools"],
+                "integrates_with": ["Coder", "Code_Reviewer", "DevOps_Specialist"],
+                "workflow_participation": ["complex_ui_feature", "bug_fix", "version_control_workflow"],
+                "knowledge_access": ["git_workflows", "branching_strategies", "merge_strategies", "collaboration_patterns"]
             },
             
             "Ask_Agent": {
                 "primary_role": "Information and guidance provider",
-                "capabilities": ["question_answering", "information_retrieval", "guidance_provision"],
-                "tools": ["knowledge_search", "documentation_access", "expert_systems"],
+                "capabilities": ["question_answering", "information_retrieval", "guidance_provision", "knowledge_search", "expert_consultation"],
+                "tools": ["knowledge_search", "documentation_access", "expert_systems", "information_retrieval", "guidance_systems"],
                 "integrates_with": ["ALL"],
-                "workflow_participation": ["ALL"],
-                "knowledge_access": ["comprehensive_knowledge_base", "documentation", "best_practices"]
+                "workflow_participation": ["information_workflow", "guidance_workflow"],
+                "knowledge_access": ["comprehensive_knowledge_base", "documentation", "best_practices", "expert_knowledge"]
             }
         }
         
@@ -724,7 +858,7 @@ class AgentKnowledgeRegistry:
         agent_workflows = [w for w in self.capabilities[CapabilityType.WORKFLOW].values() 
                           if agent_name in w.agent_sequence]
         for workflow in agent_workflows:
-            if not self._validate_workflow_knowledge(agent_name, workflow.name):
+            if not self._validate_workflow_knowledge(agent_name, workflow.workflow_type):
                 validation_results["workflows_understood"] = False
                 validation_results["issues"].append(f"Workflow knowledge incomplete: {workflow.name}")
                 
@@ -835,13 +969,29 @@ class AgentKnowledgeRegistry:
         
     def _validate_tool_access(self, agent_name: str, tool_name: str) -> bool:
         """Validate that an agent can access a specific tool"""
-        return self.compatibility_matrix.get(agent_name, {}).get(tool_name, False)
+        # Check if agent exists in compatibility matrix
+        if agent_name not in self.compatibility_matrix:
+            return False
+        return self.compatibility_matrix[agent_name].get(tool_name, False)
         
     def _validate_workflow_knowledge(self, agent_name: str, workflow_name: str) -> bool:
         """Validate that an agent understands a workflow"""
+        # Check if agent exists in profiles
+        if agent_name not in self.agent_profiles:
+            return False
+            
+        # Get agent's workflow participation
+        workflow_participation = self.agent_profiles[agent_name].get("workflow_participation", [])
+        
+        # Check if agent participates in this workflow (by workflow_type)
+        if workflow_name in workflow_participation:
+            return True
+            
+        # Also check if agent is in workflow sequence
         if workflow_name in self.capabilities[CapabilityType.WORKFLOW]:
             workflow = self.capabilities[CapabilityType.WORKFLOW][workflow_name]
             return agent_name in workflow.agent_sequence
+            
         return False
         
 

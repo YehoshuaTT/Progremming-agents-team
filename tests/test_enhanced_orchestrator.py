@@ -12,7 +12,7 @@ from unittest.mock import Mock, patch, MagicMock
 import tempfile
 import shutil
 
-from core.enhanced_orchestrator import EnhancedOrchestrator
+from enhanced_orchestrator import EnhancedOrchestrator
 from tools.handoff_system import HandoffPacket, TaskStatus, NextStepSuggestion
 
 class TestEnhancedOrchestrator:

@@ -1,0 +1,85 @@
+# Autonomous Multi-Agent System Requirements
+# YAML format for dependency management
+
+name: autonomous-agents
+channels:
+  - conda-forge
+  - defaults
+
+dependencies:
+  # Python version
+  - python>=3.9
+
+  # Core testing framework
+  - pytest>=7.0.0
+  - pytest-asyncio>=0.21.0
+  - pytest-flask>=1.3.0
+
+  # Security and code quality
+  - bandit>=1.7.0
+  - safety>=2.0.0
+  - flake8>=6.0.0
+  - coverage>=7.0.0
+
+  # Token counting and AI utilities
+  - tiktoken>=0.5.0
+
+  # Async operations
+  - aiofiles>=23.0.0
+  - aiosqlite>=0.21.0
+
+  # Machine Learning and Data Science
+  - numpy>=1.21.0
+  - scikit-learn>=1.0.0
+  - pandas>=1.3.0
+  - scipy>=1.7.0
+
+  # Knowledge Graph and Graph Database
+  - networkx>=3.0
+  
+  # Web and API dependencies
+  - requests>=2.25.0
+  - flask>=2.0.0
+  - werkzeug>=2.0.0
+
+  # Data serialization
+  - pyyaml>=6.0
+  - jsonschema>=4.0.0
+
+  # Development tools
+  - black>=22.0.0
+  - isort>=5.0.0
+  - mypy>=0.910
+
+  # Optional: GPU support (uncomment if needed)
+  # - pytorch>=1.12.0
+  # - torchvision>=0.13.0
+  # - cudatoolkit>=11.3
+
+  # Pip-only dependencies
+  - pip
+  - pip:
+    - py2neo>=2021.2.4
+    - neo4j>=5.0.0
+    - markdown-it-py>=3.0.0
+    - rich>=14.0.0
+    - stevedore>=5.4.0
+
+# Development environment setup
+variables:
+  PYTHONPATH: "${CONDA_PREFIX}/src:${PYTHONPATH}"
+  
+# Optional: Environment-specific configurations
+dev_dependencies:
+  - jupyter>=1.0.0
+  - ipython>=8.0.0
+  - notebook>=6.4.0
+
+test_dependencies:
+  - pytest-cov>=4.0.0
+  - pytest-mock>=3.10.0
+  - pytest-xdist>=3.0.0
+
+production_dependencies:
+  - gunicorn>=20.1.0
+  - supervisor>=4.2.0

@@ -164,6 +164,11 @@ class AgentFactory:
                 "role": "Version Control Manager",
                 "description": "Manages Git operations and version control",
                 "default_next_step": "MERGE_COMPLETE"
+            },
+            "Ask_Agent": {
+                "role": "Information and Guidance Provider",
+                "description": "Provides information, guidance, and expert consultation",
+                "default_next_step": "INFORMATION_PROVIDED"
             }
         }
     
@@ -254,6 +259,8 @@ class AgentOrchestrationPipeline:
             return self._create_complex_ui_workflow(workflow_id, initial_context)
         elif workflow_type == "simple_linear_feature":
             return self._create_simple_linear_workflow(workflow_id, initial_context)
+        elif workflow_type == "security_update":
+            return self._create_security_update_workflow(workflow_id, initial_context)
         else:
             raise ValueError(f"Unknown workflow type: {workflow_type}")
     
