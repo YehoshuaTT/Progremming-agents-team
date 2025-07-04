@@ -3,9 +3,9 @@
 
 import sys
 import os
-sys.path.append(os.path.join(os.path.dirname(__file__), 'tools'))
+sys.path.append(os.path.dirname(__file__))
 
-from execution_tools import execute_shell_command
+from tools.execution_tools import execute_shell_command
 
 # Test execution
 result = execute_shell_command("echo 'Success'", agent_id="test_agent")

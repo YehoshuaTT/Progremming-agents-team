@@ -41,7 +41,7 @@ class DocumentSection:
         if not self.content.strip():
             return "Empty section"
         
-        # Simple heuristic-based summary
+        # Simple heuristic-based summary (much more concise)
         lines = self.content.strip().split('\n')
         
         # Remove empty lines and headers
@@ -53,22 +53,11 @@ class DocumentSection:
         # Take first non-empty line as summary base
         first_line = content_lines[0].strip()
         
-        # If it's a code block, identify the language
-        if first_line.startswith('```'):
-            lang = first_line.replace('```', '').strip()
-            return f"Code block in {lang or 'unknown language'}"
+        # Keep summary very short
+        if len(first_line) > 50:
+            return first_line[:47] + "..."
         
-        # If it's a list, summarize list content
-        if first_line.startswith(('-', '*', '+')):
-            return f"List with {len(content_lines)} items"
-        
-        # If it's a table, identify table structure
-        if '|' in first_line:
-            return "Table with structured data"
-        
-        # For regular text, use first sentence
-        summary = first_line[:100] + "..." if len(first_line) > 100 else first_line
-        return summary
+        return first_line
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert section to dictionary for JSON serialization"""
@@ -76,11 +65,10 @@ class DocumentSection:
             "section_id": self.section_id,
             "title": self.title,
             "summary": self.summary,
-            "token_count_estimate": self.token_count,
+            "token_count": self.token_count,
             "start_line": self.start_line,
             "end_line": self.end_line,
-            "level": self.level,
-            "subsections": [sub.to_dict() for sub in self.subsections]
+            "level": self.level
         }
 
 class DocumentSummaryGenerator:
@@ -109,20 +97,12 @@ class DocumentSummaryGenerator:
         # Generate overall summary
         overall_summary = self._generate_overall_summary(content, sections)
         
-        # Create summary structure
+        # Create summary structure (optimized for minimal tokens)
         summary = {
             "document_title": self._extract_title(content, path.name),
-            "document_path": str(path),
-            "generated_at": datetime.now().isoformat(),
-            "overall_summary": overall_summary,
-            "total_token_estimate": total_tokens,
+            "total_tokens": total_tokens,
             "sections": [section.to_dict() for section in sections],
-            "metadata": {
-                "file_size": path.stat().st_size,
-                "file_type": path.suffix.lower(),
-                "section_count": len(sections),
-                "generator_version": "1.0"
-            }
+            "total_sections": len(sections)
         }
         
         return summary

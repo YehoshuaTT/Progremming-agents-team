@@ -71,12 +71,9 @@ Final thoughts and next steps for the project.
         
         # Check structure
         self.assertIn('document_title', summary)
-        self.assertIn('document_path', summary)
-        self.assertIn('generated_at', summary)
-        self.assertIn('overall_summary', summary)
-        self.assertIn('total_token_estimate', summary)
+        self.assertIn('total_tokens', summary)
         self.assertIn('sections', summary)
-        self.assertIn('metadata', summary)
+        self.assertIn('total_sections', summary)
         
         # Check sections
         sections = summary['sections']
@@ -87,7 +84,7 @@ Final thoughts and next steps for the project.
         self.assertIn('section_id', first_section)
         self.assertIn('title', first_section)
         self.assertIn('summary', first_section)
-        self.assertIn('token_count_estimate', first_section)
+        self.assertIn('token_count', first_section)
         self.assertIn('start_line', first_section)
         self.assertIn('end_line', first_section)
     
@@ -110,11 +107,11 @@ Final thoughts and next steps for the project.
         """Test token count estimation"""
         summary = self.generator.generate_summary(self.temp_path)
         
-        total_tokens = summary['total_token_estimate']
+        total_tokens = summary['total_tokens']
         self.assertGreater(total_tokens, 0)
         
         # Sum of section tokens should equal total
-        section_tokens = sum(s['token_count_estimate'] for s in summary['sections'])
+        section_tokens = sum(s['token_count'] for s in summary['sections'])
         self.assertEqual(total_tokens, section_tokens)
     
     def test_save_and_load_summary(self):
@@ -355,7 +352,7 @@ The system should be implemented using Node.js and Express.
             # Original document would be ~500+ tokens
             # Section should be much smaller
             section_tokens = section_result['section_info']['token_count_estimate']
-            total_tokens = summary['total_token_estimate']
+            total_tokens = summary['total_tokens']
             
             # Section should be significantly smaller than total
             self.assertLess(section_tokens, total_tokens * 0.5)

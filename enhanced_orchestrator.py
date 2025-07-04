@@ -93,9 +93,16 @@ class EnhancedOrchestrator:
         
         # Generate or load summaries for relevant documents
         if "previous_artifacts" in context:
+            # Replace full artifacts with summaries
             optimized_context["artifact_summaries"] = self._get_artifact_summaries(
                 context["previous_artifacts"], agent_name
             )
+            # Remove the original full artifacts to save tokens
+            del optimized_context["previous_artifacts"]
+        
+        # Remove full document content if present (simulates real scenario)
+        if "artifact_content" in optimized_context:
+            del optimized_context["artifact_content"]
         
         # Add context tools instructions
         optimized_context["context_tools"] = {

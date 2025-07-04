@@ -1,0 +1,10 @@
+{
+    "id": "TASK-1751616104",
+    "title": "Task TASK-TEST_WORKFLOW_002-001",
+    "description": "Create detailed specification for: Test task assignment",
+    "parent_task_id": "TEST_WORKFLOW_002",
+    "status": "OPEN",
+    "created_at": "2025-07-04T11:01:44.133779",
+    "updated_at": "2025-07-04T11:01:44.133783",
+    "files": []
+}

@@ -8,6 +8,34 @@ build/
 develop-eggs/
 dist/
 downloads/
+
+# Debug files (temporary)
+debug_*.py
+debug_commands.py
+debug_execution.py
+debug_rate_limit.py
+debug_section_extraction.py
+
+# Temporary files and logs
+*.log
+security.log
+execution.log
+checkpoints/
+logs/
+tasks/
+sandbox/
+demo_workspace/
+workspace/temp/
+workspace/logs/
+
+# Document summaries (generated automatically)
+*.summary.json
+*.md.summary.json
+
+# Analysis and cleanup files
+CLEANUP_ANALYSIS.md
+IMPLEMENTATION_COMPLETE.md
+Implementation_Status_Report_EN.md
 eggs/
 .eggs/
 lib/
