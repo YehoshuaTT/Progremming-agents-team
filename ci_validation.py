@@ -82,7 +82,7 @@ def validate_environment():
         ("tools.knowledge_graph", "Knowledge Graph System"),
         ("tools.experience_database", "Experience Database"),
         ("tools.pattern_recognition", "Pattern Recognition"),
-        ("core.enhanced_orchestrator", "Enhanced Orchestrator"),
+        ("enhanced_orchestrator", "Enhanced Orchestrator"),
     ]
     
     print("🔧 Testing Project Modules:")
@@ -98,7 +98,7 @@ def validate_environment():
         "config/requirements.txt",
         "tools/knowledge_graph.py",
         "tools/experience_database.py",
-        "core/enhanced_orchestrator.py",
+        "enhanced_orchestrator.py",
         "tests/test_knowledge_graph.py",
         "tests/test_experience_database.py",
     ]

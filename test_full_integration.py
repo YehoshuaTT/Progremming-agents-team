@@ -6,10 +6,12 @@ Test Suite: Full System Integration Tests
 
 import asyncio
 import json
+import pytest
 from datetime import datetime
 from enhanced_orchestrator import EnhancedOrchestrator
 from tools.handoff_system import HandoffPacket, TaskStatus, NextStepSuggestion
 
+@pytest.mark.asyncio
 async def test_full_system_integration():
     """בדיקת אינטגרציה מלאה של המערכת"""
     print("🔄 Starting Full System Integration Tests...")
@@ -147,6 +149,7 @@ async def test_full_system_integration():
         "cache_stats": cache_stats
     }
 
+@pytest.mark.asyncio
 async def test_workflow_session_management():
     """בדיקת ניהול sessions של workflows"""
     print("\n🔄 Testing Workflow Session Management...")
@@ -189,6 +192,7 @@ async def test_workflow_session_management():
     
     print("✅ Workflow Session Management Tests Passed!")
 
+@pytest.mark.asyncio
 async def test_performance_monitoring():
     """בדיקת מערכת ניטור ביצועים"""
     print("\n🔄 Testing Performance Monitoring...")

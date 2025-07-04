@@ -78,7 +78,7 @@ import json
 import asyncio
 import sys
 from typing import Dict, Any, List, Optional
-from core.enhanced_orchestrator import EnhancedOrchestrator
+from enhanced_orchestrator import EnhancedOrchestrator
 
 
 class KilocodeOrchestrator:

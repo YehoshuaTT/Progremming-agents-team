@@ -4,8 +4,10 @@ Test Agent Knowledge Integration
 Verify all agents have proper access to tools and workflows
 """
 import asyncio
+import pytest
 from tools.agent_knowledge_integration import get_knowledge_registry
 
+@pytest.mark.asyncio
 async def test_agent_knowledge():
     """Test agent knowledge integration"""
     print("🔄 Testing Agent Knowledge Integration...")

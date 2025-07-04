@@ -74,7 +74,7 @@ graph TB
 
 ```python
 import asyncio
-from core.enhanced_orchestrator import EnhancedOrchestrator
+from enhanced_orchestrator import EnhancedOrchestrator
 
 async def main():
     # Initialize the orchestrator

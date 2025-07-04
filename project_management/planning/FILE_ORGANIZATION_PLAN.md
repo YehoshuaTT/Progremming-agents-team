@@ -175,7 +175,7 @@ Move-Item "security.log" "logs\"
 from enhanced_orchestrator import EnhancedOrchestrator
 
 # ל:
-from core.enhanced_orchestrator import EnhancedOrchestrator
+from enhanced_orchestrator import EnhancedOrchestrator
 ```
 
 ---

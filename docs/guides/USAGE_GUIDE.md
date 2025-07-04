@@ -38,7 +38,7 @@ Before using the system, ensure you have:
 ### Starting the System
 
 ```python
-from core.enhanced_orchestrator import EnhancedOrchestrator
+from enhanced_orchestrator import EnhancedOrchestrator
 import asyncio
 
 async def main():

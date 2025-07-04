@@ -5,7 +5,7 @@
 
 #### Start the System
 ```python
-from core.enhanced_orchestrator import EnhancedOrchestrator
+from enhanced_orchestrator import EnhancedOrchestrator
 import asyncio
 
 orchestrator = EnhancedOrchestrator()

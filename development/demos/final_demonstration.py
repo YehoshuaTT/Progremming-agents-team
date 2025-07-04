@@ -13,7 +13,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 # Import all system components
-from core.enhanced_orchestrator import EnhancedOrchestrator
+from enhanced_orchestrator import EnhancedOrchestrator
 from tools.handoff_system import HandoffPacket, TaskStatus, NextStepSuggestion
 from tools.agent_factory import AgentFactory
 from tools import task_tools, log_tools, file_tools

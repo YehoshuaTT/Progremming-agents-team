@@ -1,6 +1,12 @@
 import pytest
 import os
+import sys
 import hashlib
+from pathlib import Path
+
+# Add the backend directory to the Python path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 from app import create_app, db
 from app.models import User
 from tests.security_test_utils import SecureTestUtils, secure_equal, secure_status, secure_length, secure_no_sensitive

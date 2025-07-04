@@ -37,7 +37,7 @@
 pytest tests/test_enhanced_orchestrator.py -v
 
 # בדוק פונקציונליות בסיסית
-python -c "from core.enhanced_orchestrator import EnhancedOrchestrator; o = EnhancedOrchestrator(); print('✅ Orchestrator loads successfully')"
+python -c "from enhanced_orchestrator import EnhancedOrchestrator; o = EnhancedOrchestrator(); print('✅ Orchestrator loads successfully')"
 
 # בדוק memory usage
 python -c "import psutil; import os; print(f'Memory: {psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024:.1f} MB')"
@@ -160,7 +160,7 @@ time python development/demos/caching_system_demo.py
 python -c "
 import psutil
 import os
-from core.enhanced_orchestrator import EnhancedOrchestrator
+from enhanced_orchestrator import EnhancedOrchestrator
 process = psutil.Process(os.getpid())
 before = process.memory_info().rss / 1024 / 1024
 o = EnhancedOrchestrator()

@@ -9,6 +9,7 @@ import hashlib
 import time
 import os
 import stat
+import logging
 from typing import Any, Dict, Optional, List, Tuple, Callable
 from pathlib import Path
 from datetime import datetime, timedelta
@@ -27,6 +28,9 @@ class ToolCacheStrategy(Enum):
     GIT_AWARE = "git_aware"  # Cache aware of git state
     TIME_BASED = "time_based"  # Simple time-based caching
     NEVER_CACHE = "never_cache"  # Never cache (for non-deterministic tools)
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 @dataclass
 class ToolCacheEntry:
@@ -63,7 +67,8 @@ class ToolCacheEntry:
         """Calculate the size of the cached result in bytes"""
         try:
             return len(pickle.dumps(self.result))
-        except:
+        except (pickle.PickleError, TypeError, AttributeError) as e:
+            logger.warning(f"Could not pickle result for size calculation: {e}")
             return len(str(self.result).encode())
 
     def is_expired(self) -> bool:
@@ -108,11 +113,12 @@ class ToolCacheEntry:
             
             try:
                 with open(file_path, 'rb') as f:
-                    current_hash = hashlib.md5(f.read()).hexdigest()
+                    current_hash = hashlib.md5(f.read(), usedforsecurity=False).hexdigest()
                 
                 if current_hash != cached_hash:
                     return False
-            except:
+            except (OSError, IOError) as e:
+                logger.warning(f"Could not read file {file_path} for hash comparison: {e}")
                 return False
         
         return True
@@ -123,16 +129,22 @@ class ToolCacheEntry:
             return True
         
         try:
+            # Use 'git' command which should be in PATH on Windows
+            # Input validation: only allow specific git commands
+            git_command = ['git', 'rev-parse', 'HEAD']
             result = subprocess.run(
-                ['git', 'rev-parse', 'HEAD'],
+                git_command,
                 capture_output=True,
                 text=True,
-                cwd=os.getcwd()
+                cwd=os.getcwd(),
+                timeout=10,  # Add timeout
+                check=False  # Don't raise on non-zero exit
             )
             
             current_hash = result.stdout.strip()
             return current_hash == self.git_commit_hash
-        except:
+        except (subprocess.TimeoutExpired, subprocess.SubprocessError, OSError) as e:
+            logger.warning(f"Git command failed in cache validation: {e}")
             return True  # If git fails, assume valid
 
     def update_access(self):
@@ -253,7 +265,7 @@ class ToolCacheManager:
             'kwargs': kwargs
         }
         key_string = json.dumps(key_data, sort_keys=True, default=str)
-        return hashlib.md5(key_string.encode()).hexdigest()
+        return hashlib.md5(key_string.encode(), usedforsecurity=False).hexdigest()
 
     def _extract_file_dependencies(self, tool_name: str, *args, **kwargs) -> List[str]:
         """Extract file dependencies from tool arguments"""
@@ -289,23 +301,30 @@ class ToolCacheManager:
             try:
                 with open(file_path, 'rb') as f:
                     content = f.read()
-                    hashes[file_path] = hashlib.md5(content).hexdigest()
-            except:
-                pass  # Skip files that can't be read
+                    hashes[file_path] = hashlib.md5(content, usedforsecurity=False).hexdigest()
+            except (OSError, IOError) as e:
+                logger.warning(f"Could not read file {file_path} for hashing: {e}")
+                # Skip files that can't be read
         
         return hashes
 
     def _get_git_commit_hash(self) -> str:
         """Get current git commit hash"""
         try:
+            # Use 'git' command which should be in PATH on Windows
+            # Input validation: only allow specific git commands
+            git_command = ['git', 'rev-parse', 'HEAD']
             result = subprocess.run(
-                ['git', 'rev-parse', 'HEAD'],
+                git_command,
                 capture_output=True,
                 text=True,
-                cwd=os.getcwd()
+                cwd=os.getcwd(),
+                timeout=10,  # Add timeout
+                check=False  # Don't raise on non-zero exit
             )
             return result.stdout.strip()
-        except:
+        except (subprocess.TimeoutExpired, subprocess.SubprocessError, OSError) as e:
+            logger.warning(f"Git command failed: {e}")
             return ""
 
     def get_cached_result(self, tool_name: str, *args, **kwargs) -> Optional[Any]:
@@ -367,8 +386,9 @@ class ToolCacheManager:
                     for file_path in file_dependencies:
                         try:
                             metadata[f"mtime_{file_path}"] = os.path.getmtime(file_path)
-                        except:
-                            pass
+                        except (OSError, IOError) as e:
+                            logger.warning(f"Could not get mtime for {file_path}: {e}")
+                            # Skip files that can't be accessed
                 
                 # Create cache entry
                 entry = ToolCacheEntry(

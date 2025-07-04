@@ -4,8 +4,10 @@ Test script to verify the Enhanced Orchestrator is working correctly
 """
 
 import asyncio
+import pytest
 from enhanced_orchestrator import EnhancedOrchestrator
 
+@pytest.mark.asyncio
 async def test_orchestrator():
     """Test basic orchestrator functionality"""
     print("🔄 Initializing Enhanced Orchestrator...")

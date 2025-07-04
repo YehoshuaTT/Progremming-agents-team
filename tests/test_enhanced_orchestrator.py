@@ -28,7 +28,7 @@ class TestEnhancedOrchestrator:
     @pytest.fixture
     def orchestrator(self, temp_workspace):
         """Create orchestrator instance for testing"""
-        with patch('core.enhanced_orchestrator.Path') as mock_path:
+        with patch('enhanced_orchestrator.Path') as mock_path:
             mock_path.return_value = Path(temp_workspace)
             orchestrator = EnhancedOrchestrator()
             return orchestrator

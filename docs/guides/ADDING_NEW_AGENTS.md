@@ -662,7 +662,7 @@ Integration tests for Data Scientist agent
 
 import pytest
 import asyncio
-from core.enhanced_orchestrator import EnhancedOrchestrator
+from enhanced_orchestrator import EnhancedOrchestrator
 from agents.data_scientist import DataScientist
 
 
@@ -806,7 +806,7 @@ pytest tests/test_data_scientist_integration.py -v
 
 ```python
 # Activate the new agent
-from core.enhanced_orchestrator import EnhancedOrchestrator
+from enhanced_orchestrator import EnhancedOrchestrator
 
 orchestrator = EnhancedOrchestrator()
 
