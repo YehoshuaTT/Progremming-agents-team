@@ -169,11 +169,12 @@ class IntegrationTestRunner:
     def test_human_approval_queue(self):
         """Test 7: Human Approval Queue"""
         try:
-            # Add test approval request
+            # Add test approval request with proper status
             approval_request = {
                 "id": "APPROVAL_TEST_001",
                 "workflow_id": "TEST_WORKFLOW_003",
                 "description": "Test approval request",
+                "status": "pending",  # Add required status field
                 "timestamp": datetime.now().isoformat()
             }
             
@@ -197,7 +198,10 @@ class IntegrationTestRunner:
             partial_tests = sum(1 for result in self.test_results if result["status"] == "PARTIAL")
             total_tests = len(self.test_results)
             
-            success_rate = (passed_tests + partial_tests) / total_tests * 100
+            if total_tests > 0:
+                success_rate = (passed_tests + partial_tests) / total_tests * 100
+            else:
+                success_rate = 0
             
             summary = {
                 "total_tests": total_tests,
@@ -207,8 +211,8 @@ class IntegrationTestRunner:
                 "success_rate": f"{success_rate:.1f}%"
             }
             
-            self.log_test_result("System Integration Summary", "INFO", 
-                               f"Tests: {summary['passed']}/{summary['total']} passed, "
+            self.log_test_result("System Integration Summary", "PASS", 
+                               f"Tests: {summary['passed']}/{summary['total_tests']} passed, "
                                f"Success rate: {summary['success_rate']}")
             
             return summary

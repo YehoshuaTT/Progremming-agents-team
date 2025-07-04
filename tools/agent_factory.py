@@ -41,11 +41,20 @@ All outputs must end with a structured handoff packet in JSON format.
         """Create a complete prompt for the agent"""
         template = self.load_template()
         
-        # Replace placeholders with actual values
-        prompt = template.format(
-            task_description=task_description,
+        # Create safe context for template formatting
+        safe_context = {
+            "task_description": task_description,
             **context
-        )
+        }
+        
+        # Handle template formatting safely
+        try:
+            prompt = template.format(**safe_context)
+        except KeyError as e:
+            # If there are missing placeholders, use the template as-is
+            prompt = template
+            # Add task description at the beginning
+            prompt = f"TASK: {task_description}\n\nCONTEXT: {context}\n\n" + prompt
         
         # Add handoff packet requirements
         prompt += "\n\n" + self._get_handoff_instructions()

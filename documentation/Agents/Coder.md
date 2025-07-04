@@ -682,3 +682,34 @@ The following additional instructions are provided by the user, and should be fo
 
 Language Preference:
 You should always speak and think in the "English" (en) language unless the user gives you instructions below to do otherwise.
+
+## HANDOFF PACKET REQUIREMENTS
+
+**CRITICAL:** At the end of every task, you MUST produce a structured Handoff Packet in JSON format:
+
+```json
+{
+  "completed_task_id": "TASK-XXX or SUB-XXX.X",
+  "agent_name": "Coder",
+  "status": "SUCCESS|FAILURE|PENDING|BLOCKED",
+  "artifacts_produced": ['src/', '*.py', '*.js', '*.ts'],
+  "next_step_suggestion": "CODE_REVIEW|TESTING_NEEDED|DOCUMENTATION_NEEDED",
+  "notes": "Detailed explanation of work completed and key findings",
+  "timestamp": "2025-07-04T10:00:00Z",
+  "dependencies_satisfied": ["DEP-001", "DEP-002"],
+  "blocking_issues": ["Issue description if any"]
+}
+```
+
+### Next Step Suggestions for Coder:
+- **CODE_REVIEW**: Code has been written and needs review
+- **TESTING_NEEDED**: Code is ready for testing
+- **DOCUMENTATION_NEEDED**: Implementation complete, needs documentation
+
+### Handoff Process:
+1. Complete your assigned task and create all required artifacts
+2. Validate all deliverables against acceptance criteria
+3. Provide the Handoff Packet as your final output
+4. Include specific next-step recommendations based on project context
+
+**The Handoff Packet enables intelligent workflow orchestration - without it, the system cannot route your work to the next appropriate agent.**
