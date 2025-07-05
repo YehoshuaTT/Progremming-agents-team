@@ -139,7 +139,7 @@ class ToolCacheEntry:
                 cwd=os.getcwd(),
                 timeout=10,  # Add timeout
                 check=False  # Don't raise on non-zero exit
-            )
+            )  # nosec B603
             
             current_hash = result.stdout.strip()
             return current_hash == self.git_commit_hash
@@ -321,7 +321,7 @@ class ToolCacheManager:
                 cwd=os.getcwd(),
                 timeout=10,  # Add timeout
                 check=False  # Don't raise on non-zero exit
-            )
+            )  # nosec B603
             return result.stdout.strip()
         except (subprocess.TimeoutExpired, subprocess.SubprocessError, OSError) as e:
             logger.warning(f"Git command failed: {e}")
