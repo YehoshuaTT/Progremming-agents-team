@@ -11,6 +11,13 @@ downloads/
 
 # Debug files (temporary) - moved to development/debug/
 development/debug/debug_*.py
+debug_*.py
+*_fixed.py
+
+# Temporary test workspace directories
+workspace/test-*/
+workspace/debug-*/
+workspace/full-test-*/
 
 # Temporary files and logs
 *.log
