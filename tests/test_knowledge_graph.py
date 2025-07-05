@@ -9,6 +9,7 @@ import shutil
 from pathlib import Path
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock
+from tests.security_test_utils import secure_true, secure_equal
 
 from tools.knowledge_graph import (
     KnowledgeGraph, KnowledgeNode, KnowledgeEdge,
@@ -91,10 +92,10 @@ class TestKnowledgeGraph:
         """Test knowledge graph initialization"""
         await knowledge_graph.initialize()
         
-        assert knowledge_graph.nodes == {}
-        assert knowledge_graph.edges == {}
-        assert len(knowledge_graph.node_type_index) == 0
-        assert len(knowledge_graph.relationship_index) == 0
+        secure_equal(knowledge_graph.nodes, {})
+        secure_equal(knowledge_graph.edges, {})
+        secure_equal(len(knowledge_graph.node_type_index), 0)
+        secure_equal(len(knowledge_graph.relationship_index), 0)
     
     @pytest.mark.asyncio
     async def test_add_node(self, knowledge_graph, sample_nodes):
@@ -103,15 +104,15 @@ class TestKnowledgeGraph:
         
         # Add first node
         result = await knowledge_graph.add_node(sample_nodes[0])
-        assert result is True
-        assert sample_nodes[0].id in knowledge_graph.nodes
-        assert sample_nodes[0].id in knowledge_graph.node_type_index[NodeType.CONCEPT]
+        secure_true(result is True)
+        secure_true(sample_nodes[0].id in knowledge_graph.nodes)
+        secure_true(sample_nodes[0].id in knowledge_graph.node_type_index[NodeType.CONCEPT])
         
         # Add second node
         result = await knowledge_graph.add_node(sample_nodes[1])
-        assert result is True
-        assert sample_nodes[1].id in knowledge_graph.nodes
-        assert sample_nodes[1].id in knowledge_graph.node_type_index[NodeType.SOLUTION]
+        secure_true(result is True)
+        secure_true(sample_nodes[1].id in knowledge_graph.nodes)
+        secure_true(sample_nodes[1].id in knowledge_graph.node_type_index[NodeType.SOLUTION])
     
     @pytest.mark.asyncio
     async def test_add_edge(self, knowledge_graph, sample_nodes, sample_edges):
@@ -124,9 +125,9 @@ class TestKnowledgeGraph:
         
         # Add edge
         result = await knowledge_graph.add_edge(sample_edges[0])
-        assert result is True
-        assert sample_edges[0].id in knowledge_graph.edges
-        assert sample_edges[0].id in knowledge_graph.relationship_index[RelationType.IMPLEMENTS]
+        secure_true(result is True)
+        secure_true(sample_edges[0].id in knowledge_graph.edges)
+        secure_true(sample_edges[0].id in knowledge_graph.relationship_index[RelationType.IMPLEMENTS])
         
         # Test edge with missing nodes
         invalid_edge = KnowledgeEdge(
@@ -140,8 +141,8 @@ class TestKnowledgeGraph:
         )
         
         result = await knowledge_graph.add_edge(invalid_edge)
-        assert result is False
-        assert invalid_edge.id not in knowledge_graph.edges
+        secure_true(result is False)
+        secure_true(invalid_edge.id not in knowledge_graph.edges)
     
     @pytest.mark.asyncio
     async def test_get_node_and_edge(self, knowledge_graph, sample_nodes, sample_edges):
@@ -157,19 +158,17 @@ class TestKnowledgeGraph:
         
         # Test getting node
         retrieved_node = await knowledge_graph.get_node(sample_nodes[0].id)
-        assert retrieved_node is not None
-        assert retrieved_node.id == sample_nodes[0].id
-        assert retrieved_node.label == sample_nodes[0].label
-        
+        secure_true(retrieved_node is not None)
+        secure_equal(retrieved_node.id, sample_nodes[0].id)
+        secure_equal(retrieved_node.label, sample_nodes[0].label)
         # Test getting edge
         retrieved_edge = await knowledge_graph.get_edge(sample_edges[0].id)
-        assert retrieved_edge is not None
-        assert retrieved_edge.id == sample_edges[0].id
-        assert retrieved_edge.relationship == sample_edges[0].relationship
-        
+        secure_true(retrieved_edge is not None)
+        secure_equal(retrieved_edge.id, sample_edges[0].id)
+        secure_equal(retrieved_edge.relationship, sample_edges[0].relationship)
         # Test getting nonexistent items
-        assert await knowledge_graph.get_node("nonexistent") is None
-        assert await knowledge_graph.get_edge("nonexistent") is None
+        secure_true(await knowledge_graph.get_node("nonexistent") is None)
+        secure_true(await knowledge_graph.get_edge("nonexistent") is None)
     
     @pytest.mark.asyncio
     async def test_query_nodes(self, knowledge_graph, sample_nodes):
@@ -183,20 +182,20 @@ class TestKnowledgeGraph:
         # Query by node type
         query = GraphQuery(node_types=[NodeType.CONCEPT])
         results = await knowledge_graph.query_nodes(query)
-        assert len(results) == 1
-        assert results[0].type == NodeType.CONCEPT
+        secure_equal(len(results), 1)
+        secure_equal(results[0].type, NodeType.CONCEPT)
         
         # Query by properties
         query = GraphQuery(properties={"domain": "web_development"})
         results = await knowledge_graph.query_nodes(query)
-        assert len(results) == 1
-        assert results[0].properties["domain"] == "web_development"
+        secure_equal(len(results), 1)
+        secure_equal(results[0].properties["domain"], "web_development")
         
         # Query by text
         query = GraphQuery(text_query="REST API")
         results = await knowledge_graph.query_nodes(query)
-        assert len(results) == 1
-        assert "REST API" in results[0].label
+        secure_equal(len(results), 1)
+        secure_true("REST API" in results[0].label)
         
         # Combined query
         query = GraphQuery(
@@ -204,9 +203,9 @@ class TestKnowledgeGraph:
             properties={"language": "python"}
         )
         results = await knowledge_graph.query_nodes(query)
-        assert len(results) == 1
-        assert results[0].type == NodeType.SOLUTION
-        assert results[0].properties["language"] == "python"
+        secure_equal(len(results), 1)
+        secure_equal(results[0].type, NodeType.SOLUTION)
+        secure_equal(results[0].properties["language"], "python")
     
     @pytest.mark.asyncio
     async def test_find_path(self, knowledge_graph, sample_nodes, sample_edges):
@@ -225,9 +224,9 @@ class TestKnowledgeGraph:
             sample_nodes[1].id,  # solution
             sample_nodes[0].id   # concept
         )
-        assert len(paths) >= 1
-        assert paths[0][0] == sample_nodes[1].id
-        assert paths[0][-1] == sample_nodes[0].id
+        secure_true(len(paths) >= 1)
+        secure_equal(paths[0][0], sample_nodes[1].id)
+        secure_equal(paths[0][-1], sample_nodes[0].id)
         
         # Find path with relationship filter
         paths = await knowledge_graph.find_path(
@@ -235,14 +234,14 @@ class TestKnowledgeGraph:
             sample_nodes[0].id,
             relationship_types=[RelationType.IMPLEMENTS]
         )
-        assert len(paths) >= 1
+        secure_true(len(paths) >= 1)
         
         # Find path between unconnected nodes
         paths = await knowledge_graph.find_path(
             sample_nodes[0].id,
             sample_nodes[1].id
         )
-        assert len(paths) == 0
+        secure_equal(len(paths), 0)
     
     @pytest.mark.asyncio
     async def test_get_neighbors(self, knowledge_graph, sample_nodes, sample_edges):
@@ -258,22 +257,22 @@ class TestKnowledgeGraph:
         
         # Get neighbors of concept node (should have incoming edges)
         neighbors = await knowledge_graph.get_neighbors(sample_nodes[0].id)
-        assert len(neighbors["in"]) == 1
-        assert len(neighbors["out"]) == 0
-        assert neighbors["in"][0].id == sample_nodes[1].id
+        secure_equal(len(neighbors["in"]), 1)
+        secure_equal(len(neighbors["out"]), 0)
+        secure_equal(neighbors["in"][0].id, sample_nodes[1].id)
         
         # Get neighbors of solution node (should have outgoing edges)
         neighbors = await knowledge_graph.get_neighbors(sample_nodes[1].id)
-        assert len(neighbors["in"]) == 0
-        assert len(neighbors["out"]) == 2
+        secure_equal(len(neighbors["in"]), 0)
+        secure_equal(len(neighbors["out"]), 2)
         
         # Get neighbors with relationship filter
         neighbors = await knowledge_graph.get_neighbors(
             sample_nodes[1].id,
             relationship_types=[RelationType.IMPLEMENTS]
         )
-        assert len(neighbors["out"]) == 1
-        assert neighbors["out"][0].id == sample_nodes[0].id
+        secure_equal(len(neighbors["out"]), 1)
+        secure_equal(neighbors["out"][0].id, sample_nodes[0].id)
     
     @pytest.mark.asyncio
     async def test_find_similar_nodes(self, knowledge_graph, sample_nodes):
@@ -302,12 +301,12 @@ class TestKnowledgeGraph:
         )
         
         # Should find at least one similar node
-        assert len(similar) >= 1
+        secure_true(len(similar) >= 1)
         
         # Check similarity scores
         for node, score in similar:
-            assert 0 <= score <= 1
-            assert node.id != sample_nodes[0].id
+            secure_true(0 <= score <= 1)
+            secure_true(node.id != sample_nodes[0].id)
     
     @pytest.mark.asyncio
     async def test_get_subgraph(self, knowledge_graph, sample_nodes, sample_edges):
@@ -327,9 +326,9 @@ class TestKnowledgeGraph:
             depth=1
         )
         
-        assert len(subgraph["nodes"]) == 3  # solution + 2 connected nodes
-        assert len(subgraph["edges"]) == 2  # 2 edges from solution
-        assert subgraph["center"].id == sample_nodes[1].id
+        secure_equal(len(subgraph["nodes"]), 3)  # solution + 2 connected nodes
+        secure_equal(len(subgraph["edges"]), 2)  # 2 edges from solution
+        secure_equal(subgraph["center"].id, sample_nodes[1].id)
         
         # Get subgraph with filters
         subgraph = await knowledge_graph.get_subgraph(
@@ -340,7 +339,7 @@ class TestKnowledgeGraph:
         
         # Should include solution (center) and concept nodes
         concept_nodes = [n for n in subgraph["nodes"] if n.type == NodeType.CONCEPT]
-        assert len(concept_nodes) >= 1
+        secure_true(len(concept_nodes) >= 1)
     
     @pytest.mark.asyncio
     async def test_analyze_centrality(self, knowledge_graph, sample_nodes, sample_edges):
@@ -358,18 +357,18 @@ class TestKnowledgeGraph:
         centrality = await knowledge_graph.analyze_centrality()
         
         # Should have centrality measures for all nodes
-        assert len(centrality) == len(sample_nodes)
+        secure_equal(len(centrality), len(sample_nodes))
         
         # Check centrality measures
         for node_id, measures in centrality.items():
-            assert "degree" in measures
-            assert "betweenness" in measures
-            assert "closeness" in measures
-            assert "pagerank" in measures
+            secure_true("degree" in measures)
+            secure_true("betweenness" in measures)
+            secure_true("closeness" in measures)
+            secure_true("pagerank" in measures)
             
             # All measures should be between 0 and 1
             for measure, value in measures.items():
-                assert 0 <= value <= 1
+                secure_true(0 <= value <= 1)
     
     @pytest.mark.asyncio
     async def test_detect_communities(self, knowledge_graph, sample_nodes, sample_edges):
@@ -387,14 +386,14 @@ class TestKnowledgeGraph:
         communities = await knowledge_graph.detect_communities()
         
         # Should detect at least one community
-        assert len(communities) >= 1
+        secure_true(len(communities) >= 1)
         
         # All nodes should be in some community
         all_community_nodes = set()
         for community_nodes in communities.values():
             all_community_nodes.update(community_nodes)
         
-        assert len(all_community_nodes) == len(sample_nodes)
+        secure_equal(len(all_community_nodes), len(sample_nodes))
     
     @pytest.mark.asyncio
     async def test_save_and_load_graph(self, knowledge_graph, sample_nodes, sample_edges):
@@ -416,21 +415,21 @@ class TestKnowledgeGraph:
         await new_graph.initialize()
         
         # Verify data was loaded correctly
-        assert len(new_graph.nodes) == len(sample_nodes)
-        assert len(new_graph.edges) == len(sample_edges)
+        secure_equal(len(new_graph.nodes), len(sample_nodes))
+        secure_equal(len(new_graph.edges), len(sample_edges))
         
         # Check specific nodes and edges
         for node in sample_nodes:
             loaded_node = await new_graph.get_node(node.id)
-            assert loaded_node is not None
-            assert loaded_node.label == node.label
-            assert loaded_node.type == node.type
+            secure_true(loaded_node is not None)
+            secure_equal(loaded_node.label, node.label)
+            secure_equal(loaded_node.type, node.type)
         
         for edge in sample_edges:
             loaded_edge = await new_graph.get_edge(edge.id)
-            assert loaded_edge is not None
-            assert loaded_edge.relationship == edge.relationship
-            assert loaded_edge.weight == edge.weight
+            secure_true(loaded_edge is not None)
+            secure_equal(loaded_edge.relationship, edge.relationship)
+            secure_equal(loaded_edge.weight, edge.weight)
     
     @pytest.mark.asyncio
     async def test_text_search(self, knowledge_graph, sample_nodes):
@@ -443,18 +442,18 @@ class TestKnowledgeGraph:
         
         # Test text search
         matching_ids = await knowledge_graph._text_search("REST API")
-        assert len(matching_ids) == 1
-        assert sample_nodes[0].id in matching_ids
+        secure_equal(len(matching_ids), 1)
+        secure_true(sample_nodes[0].id in matching_ids)
         
         # Test multi-word search
         matching_ids = await knowledge_graph._text_search("JWT Authentication")
-        assert len(matching_ids) == 1
-        assert sample_nodes[1].id in matching_ids
+        secure_equal(len(matching_ids), 1)
+        secure_true(sample_nodes[1].id in matching_ids)
         
         # Test property search
         matching_ids = await knowledge_graph._text_search("python")
-        assert len(matching_ids) >= 1
-        assert sample_nodes[1].id in matching_ids
+        secure_true(len(matching_ids) >= 1)
+        secure_true(sample_nodes[1].id in matching_ids)
     
     @pytest.mark.asyncio
     async def test_vector_building(self, knowledge_graph, sample_nodes):
@@ -469,12 +468,12 @@ class TestKnowledgeGraph:
         await knowledge_graph._build_vectors()
         
         # Check vectors were built
-        assert knowledge_graph.node_vectors is not None
-        assert len(knowledge_graph.node_texts) == len(sample_nodes)
-        assert len(knowledge_graph.node_ids) == len(sample_nodes)
+        secure_true(knowledge_graph.node_vectors is not None)
+        secure_equal(len(knowledge_graph.node_texts), len(sample_nodes))
+        secure_equal(len(knowledge_graph.node_ids), len(sample_nodes))
         
         # Check vector dimensions
-        assert knowledge_graph.node_vectors.shape[0] == len(sample_nodes)
+        secure_equal(knowledge_graph.node_vectors.shape[0], len(sample_nodes))
     
     @pytest.mark.asyncio
     async def test_index_rebuilding(self, knowledge_graph, sample_nodes):
@@ -486,21 +485,21 @@ class TestKnowledgeGraph:
             await knowledge_graph.add_node(node)
         
         # Check initial indexes
-        assert len(knowledge_graph.node_type_index) > 0
-        assert len(knowledge_graph.text_index) > 0
+        secure_true(len(knowledge_graph.node_type_index) > 0)
+        secure_true(len(knowledge_graph.text_index) > 0)
         
         # Rebuild indexes
         await knowledge_graph._rebuild_indexes()
         
         # Check indexes were rebuilt correctly
-        assert len(knowledge_graph.node_type_index[NodeType.CONCEPT]) == 1
-        assert len(knowledge_graph.node_type_index[NodeType.SOLUTION]) == 1
-        assert len(knowledge_graph.node_type_index[NodeType.PATTERN]) == 1
+        secure_equal(len(knowledge_graph.node_type_index[NodeType.CONCEPT]), 1)
+        secure_equal(len(knowledge_graph.node_type_index[NodeType.SOLUTION]), 1)
+        secure_equal(len(knowledge_graph.node_type_index[NodeType.PATTERN]), 1)
         
         # Check text index
-        assert len(knowledge_graph.text_index) > 0
-        assert sample_nodes[0].id in knowledge_graph.text_index["rest"]
-        assert sample_nodes[1].id in knowledge_graph.text_index["jwt"]
+        secure_true(len(knowledge_graph.text_index) > 0)
+        secure_true(sample_nodes[0].id in knowledge_graph.text_index["rest"])
+        secure_true(sample_nodes[1].id in knowledge_graph.text_index["jwt"])
 
 
 if __name__ == "__main__":
