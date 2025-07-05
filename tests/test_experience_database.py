@@ -9,6 +9,7 @@ import tempfile
 import os
 from datetime import datetime, timedelta
 from pathlib import Path
+from tests.security_test_utils import secure_true, secure_equal
 
 from tools.experience_database import (
     ExperienceDatabase, ExperienceEntry, TaskType, OutcomeType
@@ -60,30 +61,30 @@ class TestExperienceDatabase:
     @pytest.mark.asyncio
     async def test_database_initialization(self, temp_db):
         """Test database initialization"""
-        assert temp_db.db_path.exists()
+        secure_true(temp_db.db_path.exists())
         
         # Test that tables are created
-        assert temp_db.db_path.stat().st_size > 0
+        secure_true(temp_db.db_path.stat().st_size > 0)
     
     @pytest.mark.asyncio
     async def test_log_experience(self, temp_db, sample_experience):
         """Test logging an experience"""
         result = await temp_db.log_experience(sample_experience)
-        assert result is True
+        secure_true(result is True)
         
         # Verify it was stored
         retrieved = await temp_db.get_experience(sample_experience.id)
-        assert retrieved is not None
-        assert retrieved.id == sample_experience.id
-        assert retrieved.agent_id == sample_experience.agent_id
-        assert retrieved.task_type == sample_experience.task_type
-        assert retrieved.success == sample_experience.success
+        secure_true(retrieved is not None)
+        secure_equal(retrieved.id, sample_experience.id)
+        secure_equal(retrieved.agent_id, sample_experience.agent_id)
+        secure_equal(retrieved.task_type, sample_experience.task_type)
+        secure_equal(retrieved.success, sample_experience.success)
     
     @pytest.mark.asyncio
     async def test_get_experience_not_found(self, temp_db):
         """Test getting non-existent experience"""
         result = await temp_db.get_experience("nonexistent_id")
-        assert result is None
+        secure_true(result is None)
     
     @pytest.mark.asyncio
     async def test_search_experiences(self, temp_db, sample_experience):
@@ -93,20 +94,20 @@ class TestExperienceDatabase:
         
         # Search by agent_id
         results = await temp_db.search_experiences(agent_id="test_agent")
-        assert len(results) == 1
-        assert results[0].id == sample_experience.id
+        secure_equal(len(results), 1)
+        secure_equal(results[0].id, sample_experience.id)
         
         # Search by task_type
         results = await temp_db.search_experiences(task_type=TaskType.CODE_GENERATION)
-        assert len(results) == 1
+        secure_equal(len(results), 1)
         
         # Search by success
         results = await temp_db.search_experiences(success=True)
-        assert len(results) == 1
+        secure_equal(len(results), 1)
         
         # Search with no matches
         results = await temp_db.search_experiences(agent_id="nonexistent")
-        assert len(results) == 0
+        secure_equal(len(results), 0)
     
     @pytest.mark.asyncio
     async def test_get_agent_statistics(self, temp_db):
@@ -138,13 +139,13 @@ class TestExperienceDatabase:
         # Get statistics
         stats = await temp_db.get_agent_statistics("test_agent")
         
-        assert stats["agent_id"] == "test_agent"
-        assert stats["total_experiences"] == 5
-        assert stats["success_count"] == 3  # 0, 2, 4 are successes
-        assert stats["success_rate"] == 0.6
-        assert stats["avg_duration"] == 20.0  # (0+10+20+30+40)/5
-        assert "task_distribution" in stats
-        assert "outcome_distribution" in stats
+        secure_equal(stats["agent_id"], "test_agent")
+        secure_equal(stats["total_experiences"], 5)
+        secure_equal(stats["success_count"], 3)  # 0, 2, 4 are successes
+        secure_equal(stats["success_rate"], 0.6)
+        secure_equal(stats["avg_duration"], 20.0)  # (0+10+20+30+40)/5
+        secure_true("task_distribution" in stats)
+        secure_true("outcome_distribution" in stats)
     
     @pytest.mark.asyncio
     async def test_get_similar_experiences(self, temp_db):
@@ -196,9 +197,9 @@ class TestExperienceDatabase:
         )
         
         # Should find the similar one with higher similarity
-        assert len(similar) >= 1
+        secure_true(len(similar) >= 1)
         # The first result should be the most similar
-        assert similar[0][0].id == "exp_1"
+        secure_equal(similar[0][0].id, "exp_1")
     
     @pytest.mark.asyncio
     async def test_add_feedback(self, temp_db, sample_experience):
@@ -212,7 +213,7 @@ class TestExperienceDatabase:
             comment="Excellent work"
         )
         
-        assert result is True
+        secure_true(result is True)
     
     @pytest.mark.asyncio
     async def test_get_recommendations(self, temp_db):
@@ -243,9 +244,8 @@ class TestExperienceDatabase:
             task_type=TaskType.CODE_GENERATION
         )
         
-        assert isinstance(recommendations, list)
-        # Should have at least some recommendations based on similar experiences
-        assert len(recommendations) >= 0
+        secure_true(isinstance(recommendations, list))
+        secure_true(len(recommendations) >= 0)
 
 
 class TestPatternRecognitionEngine:
@@ -301,17 +301,17 @@ class TestPatternRecognitionEngine:
         """Test comprehensive pattern analysis"""
         analysis = await pattern_engine.analyze_all_patterns()
         
-        assert "patterns" in analysis
-        assert "anti_patterns" in analysis
-        assert "opportunities" in analysis
-        assert "clusters" in analysis
-        assert "analyzed_at" in analysis
-        assert "experience_count" in analysis
+        secure_true("patterns" in analysis)
+        secure_true("anti_patterns" in analysis)
+        secure_true("opportunities" in analysis)
+        secure_true("clusters" in analysis)
+        secure_true("analyzed_at" in analysis)
+        secure_true("experience_count" in analysis)
         
         # Should have some patterns with sufficient data
-        assert isinstance(analysis["patterns"], list)
-        assert isinstance(analysis["anti_patterns"], list)
-        assert isinstance(analysis["opportunities"], list)
+        secure_true(isinstance(analysis["patterns"], list))
+        secure_true(isinstance(analysis["anti_patterns"], list))
+        secure_true(isinstance(analysis["opportunities"], list))
     
     @pytest.mark.asyncio
     async def test_success_pattern_analysis(self, pattern_engine):
@@ -320,16 +320,16 @@ class TestPatternRecognitionEngine:
         
         # Should identify some success patterns
         patterns = analysis["patterns"]
-        assert isinstance(patterns, list)
+        secure_true(isinstance(patterns, list))
         
         # Each pattern should have required fields
         for pattern in patterns:
-            assert "id" in pattern
-            assert "task_type" in pattern
-            assert "pattern_type" in pattern
-            assert "success_rate" in pattern
-            assert "confidence" in pattern
-            assert "frequency" in pattern
+            secure_true("id" in pattern)
+            secure_true("task_type" in pattern)
+            secure_true("pattern_type" in pattern)
+            secure_true("success_rate" in pattern)
+            secure_true("confidence" in pattern)
+            secure_true("frequency" in pattern)
     
     @pytest.mark.asyncio
     async def test_failure_pattern_analysis(self, pattern_engine):
@@ -338,15 +338,15 @@ class TestPatternRecognitionEngine:
         
         # Should identify some anti-patterns
         anti_patterns = analysis["anti_patterns"]
-        assert isinstance(anti_patterns, list)
+        secure_true(isinstance(anti_patterns, list))
         
         # Each anti-pattern should have required fields
         for anti_pattern in anti_patterns:
-            assert hasattr(anti_pattern, 'id')
-            assert hasattr(anti_pattern, 'name')
-            assert hasattr(anti_pattern, 'description')
-            assert hasattr(anti_pattern, 'failure_rate')
-            assert hasattr(anti_pattern, 'avoidance_strategies')
+            secure_true(hasattr(anti_pattern, 'id'))
+            secure_true(hasattr(anti_pattern, 'name'))
+            secure_true(hasattr(anti_pattern, 'description'))
+            secure_true(hasattr(anti_pattern, 'failure_rate'))
+            secure_true(hasattr(anti_pattern, 'avoidance_strategies'))
     
     @pytest.mark.asyncio
     async def test_optimization_opportunities(self, pattern_engine):
@@ -355,16 +355,16 @@ class TestPatternRecognitionEngine:
         
         # Should identify some optimization opportunities
         opportunities = analysis["opportunities"]
-        assert isinstance(opportunities, list)
+        secure_true(isinstance(opportunities, list))
         
         # Each opportunity should have required fields
         for opportunity in opportunities:
-            assert hasattr(opportunity, 'id')
-            assert hasattr(opportunity, 'area')
-            assert hasattr(opportunity, 'description')
-            assert hasattr(opportunity, 'current_performance')
-            assert hasattr(opportunity, 'potential_improvement')
-            assert hasattr(opportunity, 'suggested_actions')
+            secure_true(hasattr(opportunity, 'id'))
+            secure_true(hasattr(opportunity, 'area'))
+            secure_true(hasattr(opportunity, 'description'))
+            secure_true(hasattr(opportunity, 'current_performance'))
+            secure_true(hasattr(opportunity, 'potential_improvement'))
+            secure_true(hasattr(opportunity, 'suggested_actions'))
     
     @pytest.mark.asyncio
     async def test_clustering_analysis(self, pattern_engine):
@@ -373,12 +373,12 @@ class TestPatternRecognitionEngine:
         
         # Should perform clustering analysis
         clusters = analysis["clusters"]
-        assert isinstance(clusters, dict)
+        secure_true(isinstance(clusters, dict))
         
         # Should have clustering results
         if "clusters" in clusters:
             cluster_data = clusters["clusters"]
-            assert isinstance(cluster_data, dict)
+            secure_true(isinstance(cluster_data, dict))
 
 
 # Integration tests
@@ -424,21 +424,21 @@ class TestIntegration:
             
             # Get agent statistics
             stats = await db.get_agent_statistics("integration_agent")
-            assert stats["total_experiences"] == 15
-            assert stats["success_rate"] == 1.0
+            secure_equal(stats["total_experiences"], 15)
+            secure_equal(stats["success_rate"], 1.0)
             
             # Get recommendations
             recommendations = await db.get_recommendations(
                 context={"language": "python", "complexity": "medium"},
                 task_type=TaskType.CODE_GENERATION
             )
-            assert isinstance(recommendations, list)
+            secure_true(isinstance(recommendations, list))
             
             # Perform pattern analysis
             analysis = await pattern_engine.analyze_all_patterns()
-            assert "patterns" in analysis
-            assert "anti_patterns" in analysis
-            assert "opportunities" in analysis
+            secure_true("patterns" in analysis)
+            secure_true("anti_patterns" in analysis)
+            secure_true("opportunities" in analysis)
             
             # Add feedback
             await db.add_feedback(
@@ -500,9 +500,9 @@ class TestPerformance:
             results = await db.search_experiences(limit=50)
             search_time = datetime.now() - search_start
             
-            assert len(results) == 50
-            assert insert_time.total_seconds() < 30  # Should complete within 30 seconds
-            assert search_time.total_seconds() < 5   # Should search within 5 seconds
+            secure_equal(len(results), 50)
+            secure_true(insert_time.total_seconds() < 30)  # Should complete within 30 seconds
+            secure_true(search_time.total_seconds() < 5)   # Should search within 5 seconds
             
         finally:
             if os.path.exists(db_path):

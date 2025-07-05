@@ -235,7 +235,7 @@ class TestConvenienceFunctions:
         """Test the quick_replace convenience function"""
         # Test with current working directory
         result = quick_replace(
-            "nonexistent_text",
+            "replacement_text",
             "replacement_text"
         )
         

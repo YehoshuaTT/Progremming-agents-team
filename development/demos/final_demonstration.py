@@ -17,6 +17,7 @@ from enhanced_orchestrator import EnhancedOrchestrator
 from tools.handoff_system import HandoffPacket, TaskStatus, NextStepSuggestion
 from tools.agent_factory import AgentFactory
 from tools import task_tools, log_tools, file_tools
+from tests.security_test_utils import secure_true, secure_equal
 
 class SystemDemonstration:
     """Comprehensive demonstration of the autonomous multi-agent system"""
@@ -61,9 +62,9 @@ class SystemDemonstration:
                              "Multi-agent workflow pipeline ready")
             
             # Show state management
-            assert hasattr(self.orchestrator, 'active_workflows')
-            assert hasattr(self.orchestrator, 'handoff_history')
-            assert hasattr(self.orchestrator, 'human_approval_queue')
+            secure_true(hasattr(self.orchestrator, 'active_workflows'))
+            secure_true(hasattr(self.orchestrator, 'handoff_history'))
+            secure_true(hasattr(self.orchestrator, 'human_approval_queue'))
             self.log_demo_step("State Management", "SUCCESS", 
                              "Workflow state tracking and persistence enabled")
             
@@ -123,10 +124,10 @@ class SystemDemonstration:
                 json_str = packet.to_json()
                 
                 # Verify packet structure
-                assert packet.completed_task_id is not None
-                assert packet.agent_name is not None
-                assert packet.status in [TaskStatus.SUCCESS, TaskStatus.FAILURE, TaskStatus.PENDING, TaskStatus.BLOCKED]
-                assert packet.next_step_suggestion is not None
+                secure_true(packet.completed_task_id is not None)
+                secure_true(packet.agent_name is not None)
+                secure_true(packet.status in [TaskStatus.SUCCESS, TaskStatus.FAILURE, TaskStatus.PENDING, TaskStatus.BLOCKED])
+                secure_true(packet.next_step_suggestion is not None)
                 
                 self.log_demo_step(f"Handoff Scenario: {scenario['name']}", "SUCCESS", 
                                  f"Agent: {packet.agent_name}, Next: {packet.next_step_suggestion.value}")
@@ -183,8 +184,8 @@ class SystemDemonstration:
             # Test workflow status retrieval
             for workflow in workflows:
                 status = self.orchestrator.get_workflow_status(workflow["id"])
-                assert status is not None
-                assert "status" in status
+                secure_true(status is not None)
+                secure_true("status" in status)
             
             self.log_demo_step("Parallel Workflow Management", "SUCCESS", 
                              f"Managing {len(workflows)} concurrent workflows")
@@ -228,7 +229,7 @@ class SystemDemonstration:
             
             # Test approval queue management
             pending_approvals = [req for req in self.orchestrator.human_approval_queue if req.get('status', 'pending') == 'pending']
-            assert len(pending_approvals) >= 2
+            secure_true(len(pending_approvals) >= 2)
             
             self.log_demo_step("Human Approval Gates", "SUCCESS", 
                              f"Created {len(approval_requests)} approval gates")

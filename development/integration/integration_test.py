@@ -14,6 +14,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from enhanced_orchestrator import EnhancedOrchestrator
 from tools.handoff_system import HandoffPacket, TaskStatus, NextStepSuggestion
+from tests.security_test_utils import secure_true, secure_equal
 
 class IntegrationTestRunner:
     """Test runner for complete system integration"""
@@ -36,10 +37,10 @@ class IntegrationTestRunner:
     def test_orchestrator_initialization(self):
         """Test 1: Orchestrator Initialization"""
         try:
-            assert self.orchestrator.router is not None
-            assert self.orchestrator.agent_factory is not None
-            assert self.orchestrator.orchestration_pipeline is not None
-            assert len(self.orchestrator.active_workflows) == 0
+            secure_true(self.orchestrator.router is not None)
+            secure_true(self.orchestrator.agent_factory is not None)
+            secure_true(self.orchestrator.orchestration_pipeline is not None)
+            secure_equal(len(self.orchestrator.active_workflows), 0)
             
             self.log_test_result("Orchestrator Initialization", "PASS", 
                                "All core components initialized successfully")
@@ -61,14 +62,14 @@ class IntegrationTestRunner:
             )
             
             # Verify packet structure
-            assert packet.completed_task_id == "TEST_TASK_001"
-            assert packet.agent_name == "Test_Agent"
-            assert packet.status == TaskStatus.SUCCESS
+            secure_equal(packet.completed_task_id, "TEST_TASK_001")
+            secure_equal(packet.agent_name, "Test_Agent")
+            secure_equal(packet.status, TaskStatus.SUCCESS)
             
             # Test JSON serialization
             json_str = packet.to_json()
-            assert "TEST_TASK_001" in json_str
-            assert "SUCCESS" in json_str
+            secure_true("TEST_TASK_001" in json_str)
+            secure_true("SUCCESS" in json_str)
             
             self.log_test_result("Handoff Packet Creation", "PASS", 
                                "Handoff packet created and serialized correctly")
@@ -80,12 +81,12 @@ class IntegrationTestRunner:
         try:
             # Get available agents
             agents = self.orchestrator.agent_factory.list_available_agents()
-            assert len(agents) > 0
+            secure_true(len(agents) > 0)
             
             # Verify expected agents are available
             expected_agents = ["Product_Analyst", "Architect", "Code_Reviewer"]
             for agent in expected_agents:
-                assert agent in agents, f"Expected agent {agent} not found"
+                secure_true(agent in agents)
             
             self.log_test_result("Agent Factory Availability", "PASS", 
                                f"Found {len(agents)} available agents: {', '.join(agents)}")
@@ -104,9 +105,9 @@ class IntegrationTestRunner:
             }
             
             # Verify workflow state
-            assert workflow_id in self.orchestrator.active_workflows
+            secure_true(workflow_id in self.orchestrator.active_workflows)
             status = self.orchestrator.get_workflow_status(workflow_id)
-            assert status["status"] == "in_progress"
+            secure_equal(status["status"], "in_progress")
             
             self.log_test_result("Workflow State Management", "PASS", 
                                "Workflow state created and retrieved successfully")
@@ -187,8 +188,8 @@ class IntegrationTestRunner:
             
             # Verify queue management
             pending_approvals = self.orchestrator.get_pending_approvals()
-            assert len(pending_approvals) > 0
-            assert pending_approvals[0]["id"] == "APPROVAL_TEST_001"
+            secure_true(len(pending_approvals) > 0)
+            secure_equal(pending_approvals[0]["id"], "APPROVAL_TEST_001")
             
             self.log_test_result("Human Approval Queue", "PASS", 
                                "Approval queue management working correctly")
