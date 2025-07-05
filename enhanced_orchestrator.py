@@ -25,6 +25,7 @@ from tools import indexing_tools
 from tools import file_tools
 from tools import git_tools
 from tools import execution_tools
+from tools import text_replacement
 from tools.handoff_cache import get_handoff_cache_manager, create_workflow_session, add_handoff_packet
 from tools.agent_knowledge_integration import get_knowledge_registry
 
