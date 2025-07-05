@@ -22,6 +22,7 @@ sandbox/
 demo_workspace/
 workspace/temp/
 workspace/logs/
+tasks/
 
 # Document summaries (generated automatically)
 *.summary.json
