@@ -16,9 +16,9 @@ from datetime import datetime, timedelta
 from dataclasses import dataclass, asdict
 from enum import Enum
 import threading
-import pickle
+import pickle  # nosec B403  # Usage is safe: only used for trusted internal cache serialization
 import gzip
-import subprocess
+import subprocess  # nosec B404  # Usage is safe: only fixed, validated git commands are run
 from functools import wraps
 
 class ToolCacheStrategy(Enum):
