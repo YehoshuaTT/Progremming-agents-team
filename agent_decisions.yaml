@@ -1,0 +1,180 @@
+agent_rules:
+  DevOps_Engineer:
+    criteria:
+      allowed_next_agents:
+      - Monitoring_Engineer
+      - Performance_Engineer
+      max_iterations: 3
+      min_confidence: 0.8
+      quality_threshold: 0.9
+    rules:
+    - action: COMPLETE
+      condition: deployment_successful and monitoring_setup
+      priority: 1
+      reason: Deployment successful with monitoring
+    - action: RETRY
+      condition: deployment_failed
+      priority: 2
+      reason: Deployment failed, retry needed
+    - action: ESCALATE
+      condition: infrastructure_issues
+      priority: 3
+      reason: Infrastructure issues need escalation
+  Developer:
+    criteria:
+      allowed_next_agents:
+      - QA_Engineer
+      - Security_Engineer
+      - DevOps_Engineer
+      max_iterations: 3
+      min_confidence: 0.8
+      quality_threshold: 0.9
+    rules:
+    - action: COMPLETE
+      condition: code_generated and tests_included
+      priority: 1
+      reason: Code complete with tests
+    - action: NEXT_AGENT
+      condition: code_generated and not tests_included
+      priority: 2
+      reason: Code needs testing
+      target_agent: QA_Engineer
+    - action: NEXT_AGENT
+      condition: security_concerns_identified
+      priority: 3
+      reason: Security review required
+      target_agent: Security_Engineer
+    - action: NEXT_AGENT
+      condition: deployment_ready
+      priority: 4
+      reason: Ready for deployment
+      target_agent: DevOps_Engineer
+  Product_Analyst:
+    criteria:
+      allowed_next_agents:
+      - Developer
+      - Architect
+      - Designer
+      max_iterations: 2
+      min_confidence: 0.7
+      quality_threshold: 0.8
+      require_human_approval: false
+    rules:
+    - action: RETRY
+      condition: response_length < 500
+      priority: 1
+      reason: Response too short for proper analysis
+    - action: NEXT_AGENT
+      condition: security_keywords_found and complexity_high
+      priority: 2
+      reason: Security analysis required
+      target_agent: Security_Engineer
+    - action: NEXT_AGENT
+      condition: requirements_clear and scope_defined
+      priority: 3
+      reason: Ready for development
+      target_agent: Developer
+  QA_Engineer:
+    criteria:
+      allowed_next_agents:
+      - Developer
+      - Performance_Engineer
+      - Security_Engineer
+      max_iterations: 2
+      min_confidence: 0.85
+      quality_threshold: 0.9
+    rules:
+    - action: COMPLETE
+      condition: all_tests_pass and coverage_high
+      priority: 1
+      reason: All tests pass with high coverage
+    - action: NEXT_AGENT
+      condition: tests_fail or bugs_found
+      priority: 2
+      reason: Bugs found, need fixes
+      target_agent: Developer
+    - action: NEXT_AGENT
+      condition: performance_issues_detected
+      priority: 3
+      reason: Performance optimization needed
+      target_agent: Performance_Engineer
+    - action: NEXT_AGENT
+      condition: security_vulnerabilities_found
+      priority: 4
+      reason: Security vulnerabilities detected
+      target_agent: Security_Engineer
+  Security_Engineer:
+    criteria:
+      allowed_next_agents:
+      - Developer
+      - QA_Engineer
+      max_iterations: 2
+      min_confidence: 0.9
+      quality_threshold: 0.95
+      security_check_required: true
+    rules:
+    - action: COMPLETE
+      condition: security_approved and no_vulnerabilities
+      priority: 1
+      reason: Security approved
+    - action: HUMAN_REVIEW
+      condition: critical_vulnerabilities_found
+      priority: 2
+      reason: Critical security issues require human review
+    - action: NEXT_AGENT
+      condition: minor_security_issues
+      priority: 3
+      reason: Minor security fixes needed
+      target_agent: Developer
+escalation_rules:
+  levels:
+  - actions:
+    - retry
+    - different_agent
+    conditions:
+    - low_confidence
+    - repeated_failures
+    level: 1
+  - actions:
+    - specialist_review
+    - additional_testing
+    conditions:
+    - security_issues
+    - quality_concerns
+    level: 2
+  - actions:
+    - human_review
+    - workflow_pause
+    conditions:
+    - critical_failures
+    - system_risks
+    level: 3
+global_rules:
+  emergency_stop_conditions:
+  - critical_security_breach
+  - data_loss_detected
+  - system_compromise
+  human_approval_required:
+  - production_deployment
+  - security_critical_changes
+  - data_migration
+  max_workflow_iterations: 25
+quality_metrics:
+  code_quality_factors:
+  - readability
+  - maintainability
+  - test_coverage
+  - documentation
+  - error_handling
+  performance_factors:
+  - response_time
+  - throughput
+  - resource_usage
+  - scalability
+  - reliability
+  security_factors:
+  - authentication
+  - authorization
+  - input_validation
+  - encryption
+  - audit_logging
