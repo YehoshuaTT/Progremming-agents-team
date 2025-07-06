@@ -490,3 +490,66 @@ Master Document: Autonomous Software Development Team Architecture
        * The "Frontend Coder" connects the UI to the real API.
        * After all tests pass, all branches are merged.
        * The "Conductor" assigns TASK-011 to the "DevOps Specialist" to
+
+
+
+
+Work Plan: Dynamic Tool/Capability Integration for All Agents
+Objective
+Ensure that all agent implementations in the system dynamically retrieve their capabilities and available tools from the central AgentKnowledgeRegistry, rather than relying on static, hardcoded definitions.
+
+1. Identify Static Agents
+Agents currently using static capabilities (based on code review):
+
+All agents in agent_driven_workflow.py
+All agents in full_agent_workflow.py
+Any other scripts or modules with hardcoded agent capability/tool lists
+2. Upgrade Plan for Each Static Agent
+For each static agent implementation:
+
+Locate the agent’s capability/tool definition.
+Replace static definitions with a call to the central registry, e.g.:
+Use get_agent_capabilities(agent_name) or get_agent_tools(agent_name) from the registry.
+If async context is not available, refactor to support async or use a synchronous wrapper.
+Inject or initialize the registry in the agent’s context or constructor.
+Update all logic that relies on static lists to use the dynamic data structure returned by the registry.
+Test: Ensure the agent now always reflects the latest tools/capabilities, including new ones added dynamically.
+3. Code Refactoring Steps
+Refactor agent_driven_workflow.py:
+Remove the static agent_capabilities dictionary.
+On agent initialization or before each action, fetch the agent’s capabilities/tools from the registry.
+Refactor full_agent_workflow.py and similar scripts:
+Replace any hardcoded agent logic with dynamic queries to the registry.
+Add dependency injection or initialization logic for the registry where needed.
+4. Validation
+Add or update tests to verify that:
+Agents always receive the latest list of tools/capabilities.
+Adding a new tool to the system is immediately reflected in agent behavior without code changes.
+Document the new pattern in the developer guide.
+5. Documentation
+Update the QUICK_REFERENCE.md and developer docs to instruct future contributors to always use the registry for agent capabilities/tools.
+Add code examples for dynamic capability retrieval.
+6. Agents to Update (Initial List)
+Agent Name	Static File(s)	Dynamic?
+Product_Analyst	agent_driven_workflow.py	❌
+UX_UI_Designer	agent_driven_workflow.py	❌
+Architect	agent_driven_workflow.py	❌
+Tester	agent_driven_workflow.py	❌
+Coder	agent_driven_workflow.py	❌
+Code_Reviewer	agent_driven_workflow.py	❌
+Security_Specialist	agent_driven_workflow.py	❌
+QA_Guardian	agent_driven_workflow.py	❌
+DevOps_Specialist	agent_driven_workflow.py	❌
+Technical_Writer	agent_driven_workflow.py	❌
+Debugger	agent_driven_workflow.py	❌
+Git_Agent	agent_driven_workflow.py	❌
+Ask_Agent	agent_driven_workflow.py	❌
+Developer	full_agent_workflow.py	❌
+QA_Engineer	full_agent_workflow.py	❌
+7. Timeline & Milestones
+Refactor one agent as a template (1 day)
+Refactor all remaining static agents (2-3 days)
+Update tests and documentation (1 day)
+Review and merge (1 day)
+Note: Agents managed via AgentFactory and EnhancedOrchestrator already support dynamic capabilities and do not require changes.
+

@@ -14,6 +14,8 @@ from typing import Dict, List, Any, Optional, Set
 from pathlib import Path
 from dataclasses import dataclass, asdict
 from enum import Enum
+import importlib.util
+import sys
 
 from .experience_database import ExperienceDatabase
 from .knowledge_graph import KnowledgeGraph
@@ -110,8 +112,27 @@ class AgentKnowledgeRegistry:
         self.logger.info("Agent Knowledge Registry initialized successfully")
         
     async def _discover_tools(self):
-        """Discover all available tools in the system"""
-        tool_definitions = {
+        """Discover all available tools in the system (dynamic and static)"""
+        tool_definitions = {}
+        tools_dir = Path(__file__).parent
+        for py_file in tools_dir.glob("*.py"):
+            if py_file.name in ["__init__.py", "agent_knowledge_integration.py"]:
+                continue
+            module_name = f"tools.{py_file.stem}"
+            try:
+                spec = importlib.util.spec_from_file_location(module_name, py_file)
+                if spec is not None and spec.loader is not None:
+                    module = importlib.util.module_from_spec(spec)
+                    sys.modules[module_name] = module
+                    spec.loader.exec_module(module)
+                    if hasattr(module, "register_tool"):
+                        tool_info = module.register_tool()
+                        if tool_info and hasattr(tool_info, "name"):
+                            tool_definitions[py_file.stem] = tool_info
+            except Exception as e:
+                self.logger.warning(f"Failed to load tool {py_file.name}: {e}")
+        
+        tool_definitions.update({
             "experience_database": ToolCapability(
                 name="Experience Database",
                 description="Advanced experience database for agent learning and pattern recognition",
@@ -302,8 +323,7 @@ class AgentKnowledgeRegistry:
                 performance_metrics={"recovery_rate": 0.89, "error_classification_accuracy": 0.93},
                 last_updated=datetime.now()
             )
-        }
-        
+        })
         self.capabilities[CapabilityType.TOOL] = tool_definitions
         
     async def _discover_workflows(self):
