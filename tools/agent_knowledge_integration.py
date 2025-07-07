@@ -750,37 +750,71 @@ class AgentKnowledgeRegistry:
     async def get_agent_capabilities(self, agent_name: str) -> Dict[str, Any]:
         """Get comprehensive capabilities for a specific agent"""
         if agent_name not in self.agent_profiles:
-            return {}
+            return {
+                "agent_profile": {
+                    "primary_role": "Unknown",
+                    "capabilities": [],
+                    "tools": [],
+                    "integrates_with": [],
+                    "workflow_participation": [],
+                    "knowledge_access": []
+                },
+                "available_tools": [],
+                "available_workflows": [],
+                "integration_points": [],
+                "knowledge_access": []
+            }
             
         profile = self.agent_profiles[agent_name]
         
+        # Defensive: ensure all required keys exist in capabilities
+        capabilities = {
+            "agent_profile": profile,
+            "available_tools": [],
+            "available_workflows": [],
+            "integration_points": [],
+            "knowledge_access": []
+        }
+
         # Get available tools
-        available_tools = []
         for tool_name, tool_info in self.capabilities[CapabilityType.TOOL].items():
             if agent_name in tool_info.compatible_agents or "ALL" in tool_info.compatible_agents:
-                available_tools.append({
+                capabilities["available_tools"].append({
                     "name": tool_name,
                     "description": tool_info.description,
                     "usage_examples": tool_info.usage_examples
                 })
                 
         # Get available workflows
-        available_workflows = []
         for workflow_name, workflow_info in self.capabilities[CapabilityType.WORKFLOW].items():
             if agent_name in workflow_info.agent_sequence:
-                available_workflows.append({
+                capabilities["available_workflows"].append({
                     "name": workflow_name,
                     "description": workflow_info.description,
                     "role_in_workflow": f"Step {workflow_info.agent_sequence.index(agent_name) + 1}"
                 })
                 
-        return {
-            "agent_profile": profile,
-            "available_tools": available_tools,
-            "available_workflows": available_workflows,
-            "integration_points": self._get_agent_integrations(agent_name),
-            "knowledge_access": self._get_agent_knowledge_access(agent_name)
-        }
+        # Defensive: ensure agent_profile is always present and valid
+        if "agent_profile" not in capabilities or not capabilities["agent_profile"]:
+            capabilities["agent_profile"] = {
+                "primary_role": "Unknown",
+                "capabilities": [],
+                "tools": [],
+                "integrates_with": [],
+                "workflow_participation": [],
+                "knowledge_access": []
+            }
+        # Defensive: ensure all required keys exist in capabilities
+        if "available_tools" not in capabilities or not capabilities["available_tools"]:
+            capabilities["available_tools"] = []
+        if "available_workflows" not in capabilities or not capabilities["available_workflows"]:
+            capabilities["available_workflows"] = []
+        if "integration_points" not in capabilities or not capabilities["integration_points"]:
+            capabilities["integration_points"] = []
+        if "knowledge_access" not in capabilities or not capabilities["knowledge_access"]:
+            capabilities["knowledge_access"] = []
+                
+        return capabilities
         
     async def get_workflow_requirements(self, workflow_type: str) -> Dict[str, Any]:
         """Get comprehensive requirements for a specific workflow"""
@@ -838,16 +872,21 @@ class AgentKnowledgeRegistry:
         """Generate comprehensive knowledge package for an agent"""
         capabilities = await self.get_agent_capabilities(agent_name)
         
+        # Defensive: always use .get with defaults for agent_profile
+        agent_profile = capabilities.get("agent_profile", {
+            "primary_role": "Unknown",
+            "capabilities": [],
+        })
         knowledge_package = {
             "agent_identity": {
                 "name": agent_name,
-                "role": capabilities["agent_profile"]["primary_role"],
-                "specialization": capabilities["agent_profile"]["capabilities"]
+                "role": agent_profile.get("primary_role", "Unknown"),
+                "specialization": agent_profile.get("capabilities", [])
             },
-            "available_tools": capabilities["available_tools"],
-            "workflow_participation": capabilities["available_workflows"],
-            "integration_capabilities": capabilities["integration_points"],
-            "knowledge_access": capabilities["knowledge_access"],
+            "available_tools": capabilities.get("available_tools", []),
+            "workflow_participation": capabilities.get("available_workflows", []),
+            "integration_capabilities": capabilities.get("integration_points", []),
+            "knowledge_access": capabilities.get("knowledge_access", []),
             "collaboration_matrix": self._get_collaboration_info(agent_name),
             "best_practices": await self._get_agent_best_practices(agent_name),
             "performance_metrics": await self._get_agent_performance_metrics(agent_name)
@@ -1013,6 +1052,44 @@ class AgentKnowledgeRegistry:
             return agent_name in workflow.agent_sequence
             
         return False
+    
+    # --- ENHANCEMENT: Agent Capability Versioning ---
+    def add_capability_version(self, capability_type: CapabilityType, name: str, version: str):
+        """Add or update a version for a capability."""
+        if capability_type not in self.capabilities:
+            self.capabilities[capability_type] = {}
+        if name not in self.capabilities[capability_type]:
+            self.capabilities[capability_type][name] = {}
+        self.capabilities[capability_type][name]['version'] = version
+
+    # --- ENHANCEMENT: Agent Metadata Caching ---
+    def cache_agent_metadata(self, agent_name: str, metadata: Dict[str, Any]):
+        """Cache agent metadata for fast lookup."""
+        if 'metadata_cache' not in self.__dict__:
+            self.metadata_cache = {}
+        self.metadata_cache[agent_name] = metadata
+
+    def get_agent_metadata(self, agent_name: str) -> Optional[Dict[str, Any]]:
+        return getattr(self, 'metadata_cache', {}).get(agent_name)
+
+    # --- ENHANCEMENT: Agent Discovery Validation ---
+    def validate_agent_discovery(self, agent_name: str) -> bool:
+        """Validate that an agent is discoverable and properly registered."""
+        return agent_name in self.agent_profiles
+
+    # --- ENHANCEMENT: Registry Health Monitoring ---
+    def get_registry_health(self) -> Dict[str, Any]:
+        """Return health metrics for the registry."""
+        return {
+            'total_agents': len(self.agent_profiles),
+            'total_capabilities': sum(len(caps) for caps in self.capabilities.values()),
+            'last_init': getattr(self, 'last_init', None),
+            'metadata_cache_size': len(getattr(self, 'metadata_cache', {})),
+        }
+        
+    def get_all_agent_names(self) -> List[str]:
+        """Get list of all available agent names from the registry"""
+        return list(self.agent_profiles.keys())
         
 
 async def create_knowledge_integration_system() -> AgentKnowledgeRegistry:

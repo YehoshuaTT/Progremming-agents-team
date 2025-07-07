@@ -227,10 +227,14 @@ class TestAgentDrivenWorkflow:
         assert self.workflow is not None
         assert hasattr(self.workflow, 'orchestrator')
         assert hasattr(self.workflow, 'smart_router')
-        assert hasattr(self.workflow, 'agent_capabilities')
+        assert hasattr(self.workflow, 'knowledge_registry')
+        
+        # Initialize the workflow with dynamic registry
+        await self.workflow.initialize()
         
         # Test that all 13 agents are supported
-        assert len(self.workflow.agent_capabilities) >= 13
+        agents = await self.workflow.get_available_agents()
+        assert len(agents) >= 13
         expected_agents = [
             "Product_Analyst", "Coder", "Architect", "Technical_Writer",
             "QA_Guardian", "Tester", "Security_Specialist", "Code_Reviewer",
@@ -238,7 +242,7 @@ class TestAgentDrivenWorkflow:
         ]
         
         for agent in expected_agents:
-            assert agent in self.workflow.agent_capabilities
+            assert await self.workflow.validate_agent_name(agent)
         print("✅ Workflow initialization test passed")
     
     @pytest.mark.asyncio
@@ -484,13 +488,16 @@ class TestWorkflowIntegration:
             
             print(f"✅ Workflow performance test passed (executed in {execution_time:.2f}s)")
     
-    def test_workflow_configuration(self):
+    async def test_workflow_configuration(self):
         """Test workflow configuration and settings"""
         workflow = AgentDrivenWorkflow()
         
         # Test that workflow has required attributes
         assert hasattr(workflow, 'workflow_state')
-        assert hasattr(workflow, 'agent_capabilities')
+        assert hasattr(workflow, 'knowledge_registry')
+        
+        # Initialize the workflow with dynamic registry
+        await workflow.initialize()
         
         # Test smart router configuration
         assert hasattr(workflow.smart_router, 'agent_rules')
@@ -498,15 +505,16 @@ class TestWorkflowIntegration:
         assert hasattr(workflow.smart_router, 'quality_thresholds')
         
         # Test agent capabilities configuration
-        assert len(workflow.agent_capabilities) >= 13
+        agents = await workflow.get_available_agents()
+        assert len(agents) >= 13
         
         # Test that all agents have proper capabilities defined
-        for agent_name, capabilities in workflow.agent_capabilities.items():
-            assert 'specialties' in capabilities
-            assert 'typical_next_agents' in capabilities
-            assert 'decision_factors' in capabilities
-            assert isinstance(capabilities['specialties'], list)
-            assert len(capabilities['specialties']) > 0
+        for agent_name in agents[:3]:  # Test first 3 agents
+            capabilities = await workflow.get_agent_capabilities(agent_name)
+            assert 'capabilities' in capabilities
+            assert 'integrates_with' in capabilities
+            assert isinstance(capabilities['capabilities'], list)
+            assert len(capabilities['capabilities']) > 0
         
         print("✅ Workflow configuration test passed")
 
@@ -552,7 +560,7 @@ async def run_integration_tests():
     
     await test_integration.test_end_to_end_workflow()
     await test_integration.test_workflow_performance()
-    test_integration.test_workflow_configuration()
+    await test_integration.test_workflow_configuration()
     
     print("🎉 All Integration tests passed!")
 

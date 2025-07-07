@@ -30,6 +30,7 @@ from dataclasses import dataclass
 from enhanced_orchestrator import EnhancedOrchestrator
 from llm_interface import LLMInterface
 from smart_workflow_router import SmartWorkflowRouter, ContextAnalysis, AgentRecommendation
+from tools.agent_knowledge_integration import get_knowledge_registry, AgentKnowledgeRegistry
 
 
 @dataclass
@@ -41,7 +42,7 @@ class AgentDecision:
     condition: Optional[str] = None
     reason: str = ""
     confidence: float = 1.0
-    metadata: Dict = None
+    metadata: Optional[Dict] = None
 
     def to_dict(self):
         """Convert AgentDecision to a dictionary for JSON serialization"""
@@ -69,6 +70,7 @@ class AgentDrivenWorkflow:
         self.orchestrator = EnhancedOrchestrator()
         self.llm_interface = LLMInterface()
         self.smart_router = SmartWorkflowRouter()  # Add smart router
+        self.knowledge_registry: Optional[AgentKnowledgeRegistry] = None  # Will be initialized asynchronously
         
         # Workflow state
         self.workflow_state = {
@@ -83,101 +85,65 @@ class AgentDrivenWorkflow:
             'user_request': None,
             'context_analysis': None
         }
+    
+    async def initialize(self):
+        """Initialize the workflow with the knowledge registry"""
+        if self.knowledge_registry is None:
+            self.knowledge_registry = await get_knowledge_registry()
+            self.debug_print("📚 Knowledge registry initialized")
+    
+    async def get_available_agents(self) -> List[str]:
+        """Get list of all available agents from the dynamic registry"""
+        if self.knowledge_registry is None:
+            await self.initialize()
         
-        # Agent capabilities and decision patterns - ALL 13 AGENTS
-        self.agent_capabilities = {
-            'Product_Analyst': {
-                'specialties': ['requirements', 'analysis', 'planning', 'user_stories', 'specifications'],
-                'typical_next_agents': ['UX_UI_Designer', 'Architect', 'Tester'],
-                'decision_factors': ['complexity', 'clarity', 'scope', 'user_needs']
-            },
-            'UX_UI_Designer': {
-                'specialties': ['user_experience', 'interface_design', 'wireframes', 'mermaid_diagrams'],
-                'typical_next_agents': ['Architect', 'Coder', 'Product_Analyst'],
-                'decision_factors': ['usability', 'design_clarity', 'user_flow']
-            },
-            'Architect': {
-                'specialties': ['system_design', 'architecture', 'scalability', 'integration', 'technical_design'],
-                'typical_next_agents': ['Coder', 'Security_Specialist', 'DevOps_Specialist'],
-                'decision_factors': ['architecture_complexity', 'integration_needs', 'scalability_requirements']
-            },
-            'Tester': {
-                'specialties': ['test_design', 'tdd', 'automated_testing', 'test_planning'],
-                'typical_next_agents': ['Coder', 'QA_Guardian', 'Debugger'],
-                'decision_factors': ['test_coverage', 'test_complexity', 'testing_strategy']
-            },
-            'Coder': {
-                'specialties': ['coding', 'implementation', 'programming', 'clean_code'],
-                'typical_next_agents': ['Code_Reviewer', 'Tester', 'Debugger'],
-                'decision_factors': ['code_quality', 'implementation_completeness', 'test_passing']
-            },
-            'Code_Reviewer': {
-                'specialties': ['code_review', 'quality_assurance', 'best_practices', 'maintainability'],
-                'typical_next_agents': ['Security_Specialist', 'Coder', 'QA_Guardian'],
-                'decision_factors': ['code_quality', 'review_findings', 'maintainability_score']
-            },
-            'Security_Specialist': {
-                'specialties': ['security', 'vulnerability_analysis', 'compliance', 'hardening', 'risk_assessment'],
-                'typical_next_agents': ['QA_Guardian', 'Coder', 'DevOps_Specialist'],
-                'decision_factors': ['security_score', 'vulnerabilities', 'compliance_status']
-            },
-            'QA_Guardian': {
-                'specialties': ['quality_validation', 'final_testing', 'acceptance_testing', 'quality_gates'],
-                'typical_next_agents': ['DevOps_Specialist', 'Coder', 'Git_Agent'],
-                'decision_factors': ['quality_score', 'acceptance_criteria', 'deployment_readiness']
-            },
-            'DevOps_Specialist': {
-                'specialties': ['deployment', 'infrastructure', 'monitoring', 'scaling', 'ci_cd'],
-                'typical_next_agents': ['Git_Agent', 'Technical_Writer', 'Ask_Agent'],
-                'decision_factors': ['deployment_success', 'infrastructure_health', 'monitoring_setup']
-            },
-            'Technical_Writer': {
-                'specialties': ['documentation', 'user_guides', 'api_docs', 'technical_writing'],
-                'typical_next_agents': ['QA_Guardian', 'Ask_Agent'],
-                'decision_factors': ['documentation_completeness', 'clarity', 'user_friendliness']
-            },
-            'Debugger': {
-                'specialties': ['debugging', 'troubleshooting', 'issue_resolution', 'error_analysis'],
-                'typical_next_agents': ['Coder', 'Tester', 'Code_Reviewer'],
-                'decision_factors': ['issue_complexity', 'root_cause_found', 'fix_effectiveness']
-            },
-            'Git_Agent': {
-                'specialties': ['version_control', 'git_operations', 'merge_management', 'branching'],
-                'typical_next_agents': ['Technical_Writer', 'Ask_Agent'],
-                'decision_factors': ['merge_conflicts', 'version_control_status', 'repository_health']
-            },
-            'Ask_Agent': {
-                'specialties': ['information_provision', 'guidance', 'consultation', 'expert_advice'],
-                'typical_next_agents': ['Product_Analyst', 'Architect', 'Technical_Writer'],
-                'decision_factors': ['information_completeness', 'guidance_clarity', 'user_satisfaction']
-            },
-            # Legacy aliases for backward compatibility
-            'Developer': {
-                'specialties': ['coding', 'implementation', 'debugging', 'optimization'],
-                'typical_next_agents': ['QA_Engineer', 'Security_Engineer', 'DevOps_Engineer'],
-                'decision_factors': ['code_quality', 'test_coverage', 'security_concerns']
-            },
-            'QA_Engineer': {
-                'specialties': ['testing', 'quality_assurance', 'bug_detection', 'validation'],
-                'typical_next_agents': ['Developer', 'Performance_Engineer', 'DevOps_Engineer'],
-                'decision_factors': ['test_results', 'bug_count', 'performance_metrics']
-            },
-            'Security_Engineer': {
-                'specialties': ['security', 'vulnerability_analysis', 'compliance', 'hardening'],
-                'typical_next_agents': ['Developer', 'QA_Engineer', 'DevOps_Engineer'],
-                'decision_factors': ['security_score', 'vulnerabilities', 'compliance_status']
-            },
-            'DevOps_Engineer': {
-                'specialties': ['deployment', 'infrastructure', 'monitoring', 'scaling'],
-                'typical_next_agents': ['Monitoring_Engineer', 'Performance_Engineer'],
-                'decision_factors': ['deployment_success', 'infrastructure_health', 'monitoring_setup']
-            },
-            'Performance_Engineer': {
-                'specialties': ['performance', 'optimization', 'profiling', 'benchmarking'],
-                'typical_next_agents': ['Developer', 'DevOps_Engineer'],
-                'decision_factors': ['performance_metrics', 'bottlenecks', 'optimization_potential']
-            }
-        }
+        if self.knowledge_registry is not None:
+            return list(self.knowledge_registry.agent_profiles.keys())
+        return []
+    
+    async def get_agent_capabilities(self, agent_name: str) -> Dict[str, Any]:
+        """Get agent capabilities from the dynamic registry"""
+        if self.knowledge_registry is None:
+            await self.initialize()
+        
+        if self.knowledge_registry is not None:
+            capabilities = await self.knowledge_registry.get_agent_capabilities(agent_name)
+            return capabilities.get('agent_profile', {})
+        return {}
+    
+    async def validate_agent_name(self, agent_name: str) -> bool:
+        """Validate if an agent name exists in the system"""
+        if self.knowledge_registry is None:
+            await self.initialize()
+        
+        if self.knowledge_registry is not None:
+            return self.knowledge_registry.validate_agent_discovery(agent_name)
+        return False
+    
+    async def display_available_agents(self):
+        """Display all available agents with their specialties"""
+        if self.knowledge_registry is None:
+            await self.initialize()
+        
+        print("\n🤖 AVAILABLE AGENTS IN THE SYSTEM:")
+        print("=" * 60)
+        
+        agents = await self.get_available_agents()
+        main_agents = [
+            'Product_Analyst', 'UX_UI_Designer', 'Architect', 'Tester', 
+            'Coder', 'Code_Reviewer', 'Security_Specialist', 'QA_Guardian',
+            'DevOps_Specialist', 'Technical_Writer', 'Debugger', 'Git_Agent', 'Ask_Agent'
+        ]
+        
+        for i, agent in enumerate(main_agents, 1):
+            if agent in agents:
+                capabilities = await self.get_agent_capabilities(agent)
+                specialties = capabilities.get('capabilities', [])[:3]  # Show first 3
+                specialties_str = ', '.join(specialties)
+                print(f"  {i:2}. {agent:<20} | {specialties_str}")
+        
+        print("\n💡 Additional agents also available from registry")
+        print("=" * 60)
     
     def debug_print(self, message: str):
         """Print debug messages if debug mode is enabled"""
@@ -185,10 +151,10 @@ class AgentDrivenWorkflow:
             timestamp = datetime.now().strftime("%H:%M:%S")
             print(f"[{timestamp}] 🔍 {message}")
     
-    def generate_agent_decision_prompt(self, agent_name: str, user_request: str, context: Dict) -> str:
+    async def generate_agent_decision_prompt(self, agent_name: str, user_request: str, context: Dict) -> str:
         """Generate a comprehensive decision prompt for an agent"""
         
-        agent_info = self.agent_capabilities.get(agent_name, {})
+        agent_info = await self.get_agent_capabilities(agent_name)
         
         base_prompt = f"""
         AGENT ROLE: {agent_name}
@@ -198,7 +164,7 @@ class AgentDrivenWorkflow:
         {user_request}
         
         YOUR SPECIALTIES:
-        {', '.join(agent_info.get('specialties', []))}
+        {', '.join(agent_info.get('capabilities', []))}
         
         CURRENT WORKFLOW CONTEXT:
         {json.dumps(context, indent=2)}
@@ -226,15 +192,15 @@ class AgentDrivenWorkflow:
         🧠 DECISION FACTORS TO CONSIDER:
         """
         
-        # Add agent-specific decision factors
-        factors = agent_info.get('decision_factors', [])
-        if factors:
-            base_prompt += f"\n        • {factors[0].replace('_', ' ').title()}"
-            for factor in factors[1:]:
-                base_prompt += f"\n        • {factor.replace('_', ' ').title()}"
+        # Add agent-specific decision factors - derive from capabilities
+        capabilities = agent_info.get('capabilities', [])
+        if capabilities:
+            base_prompt += f"\n        • Quality of {capabilities[0].replace('_', ' ').title()}"
+            for capability in capabilities[1:3]:  # Show first 3 capabilities
+                base_prompt += f"\n        • {capability.replace('_', ' ').title()} completeness"
         
-        # Add typical next agents
-        typical_next = agent_info.get('typical_next_agents', [])
+        # Add typical next agents - derive from integrates_with
+        typical_next = agent_info.get('integrates_with', [])
         if typical_next:
             base_prompt += f"\n\n        🔗 TYPICAL NEXT AGENTS FOR {agent_name}:"
             for next_agent in typical_next:
@@ -552,7 +518,7 @@ class AgentDrivenWorkflow:
         optimized_context = self.optimize_context_for_next_agent(context)
         
         # Generate decision-enabled prompt
-        prompt = self.generate_agent_decision_prompt(agent_name, user_request, optimized_context)
+        prompt = await self.generate_agent_decision_prompt(agent_name, user_request, optimized_context)
         
         # Execute agent through orchestrator
         response = await self.orchestrator.execute_llm_call_with_cache(
@@ -633,6 +599,9 @@ class AgentDrivenWorkflow:
         print(f"\n🚀 Starting AGENT-DRIVEN AUTONOMOUS WORKFLOW")
         print(f"📝 User Request: {user_request}")
         print("=" * 80)
+        
+        # Ensure we're initialized
+        await self.initialize()
         
         # Initialize workflow state
         self.workflow_state = {
@@ -757,7 +726,7 @@ class AgentDrivenWorkflow:
                     next_agent = decision.target
                     
                     # Validate agent exists
-                    if not self.validate_agent_name(next_agent):
+                    if not await self.validate_agent_name(next_agent):
                         print(f"⚠️  Invalid agent '{next_agent}', using QA_Guardian instead")
                         next_agent = 'QA_Guardian'
                     
@@ -1026,34 +995,6 @@ class AgentDrivenWorkflow:
         else:
             return obj
     
-    def get_all_available_agents(self) -> List[str]:
-        """Get list of all available agents in the system"""
-        return list(self.agent_capabilities.keys())
-    
-    def display_available_agents(self):
-        """Display all available agents with their specialties"""
-        print("\n🤖 AVAILABLE AGENTS IN THE SYSTEM:")
-        print("=" * 60)
-        
-        main_agents = [
-            'Product_Analyst', 'UX_UI_Designer', 'Architect', 'Tester', 
-            'Coder', 'Code_Reviewer', 'Security_Specialist', 'QA_Guardian',
-            'DevOps_Specialist', 'Technical_Writer', 'Debugger', 'Git_Agent', 'Ask_Agent'
-        ]
-        
-        for i, agent in enumerate(main_agents, 1):
-            if agent in self.agent_capabilities:
-                capabilities = self.agent_capabilities[agent]
-                specialties = ', '.join(capabilities.get('specialties', [])[:3])  # Show first 3
-                print(f"  {i:2}. {agent:<20} | {specialties}")
-        
-        print("\n💡 Legacy aliases also supported: Developer, QA_Engineer, Security_Engineer, etc.")
-        print("=" * 60)
-    
-    def validate_agent_name(self, agent_name: str) -> bool:
-        """Validate if an agent name exists in the system"""
-        return agent_name in self.agent_capabilities
-    
     def should_skip_agent(self, agent_name: str, context: Dict) -> Tuple[bool, str]:
         """Determine if an agent should be skipped based on smart routing"""
         
@@ -1130,7 +1071,7 @@ class AgentDrivenWorkflow:
         
         return False
     
-    def break_workflow_loop(self, current_agent: str, context: Dict) -> str:
+    def break_workflow_loop(self, current_agent: str, context: Dict) -> Optional[str]:
         """Break workflow loop by choosing a different agent"""
         
         workflow_history = context.get('workflow_history', [])
@@ -1167,8 +1108,11 @@ async def main():
     # Create workflow
     workflow = AgentDrivenWorkflow(debug_mode=True)
     
+    # Initialize workflow with dynamic registry
+    await workflow.initialize()
+    
     # Display all available agents
-    workflow.display_available_agents()
+    await workflow.display_available_agents()
     
     # Test different types of requests
     test_requests = [

@@ -4,9 +4,12 @@ Creates and manages agent instances with standardized templates and handoff pack
 """
 
 import json
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, TYPE_CHECKING
 from pathlib import Path
 from tools.handoff_system import HandoffPacket, TaskStatus, NextStepSuggestion
+
+if TYPE_CHECKING:
+    from tools.agent_knowledge_integration import AgentKnowledgeRegistry
 
 class AgentTemplate:
     """Base class for agent templates with handoff packet support"""
@@ -99,7 +102,7 @@ class AgentFactory:
     def __init__(self):
         self.agent_configs = self._load_agent_configs()
         self.templates = {}
-        self.knowledge_registry = None  # Will be injected by orchestrator
+        self.knowledge_registry: Optional['AgentKnowledgeRegistry'] = None  # Will be injected by orchestrator
         self._initialize_templates()
     
     def _load_agent_configs(self) -> Dict[str, Dict[str, Any]]:
@@ -223,8 +226,35 @@ class AgentFactory:
         template = self.templates[agent_name]
         return template.create_prompt(task_description, context)
     
+    # --- ENHANCEMENT: Registry-based agent instantiation ---
+    def set_knowledge_registry(self, registry: 'AgentKnowledgeRegistry'):
+        """Inject the AgentKnowledgeRegistry instance for orchestration pipeline."""
+        self.knowledge_registry = registry
+
+    def create_agent(self, agent_name: str, **kwargs):
+        """Create an agent using registry data if available."""
+        if self.knowledge_registry and self.knowledge_registry.validate_agent_discovery(agent_name):
+            metadata = self.knowledge_registry.get_agent_metadata(agent_name)
+            config = metadata or self.agent_configs.get(agent_name, {})
+        else:
+            config = self.agent_configs.get(agent_name, {})
+        return AgentTemplate(
+            agent_name=agent_name,
+            role_description=config.get("description", "No description available.")
+        )
+
+    # --- ENHANCEMENT: Agent capability validation ---
+    def validate_agent_capabilities(self, agent_name: str) -> bool:
+        if self.knowledge_registry:
+            return self.knowledge_registry.validate_agent_discovery(agent_name)
+        return agent_name in self.agent_configs
+
+    # --- ENHANCEMENT: Agent configuration management ---
     def get_agent_config(self, agent_name: str) -> Dict[str, Any]:
-        """Get configuration for an agent"""
+        if self.knowledge_registry:
+            meta = self.knowledge_registry.get_agent_metadata(agent_name)
+            if meta:
+                return meta
         return self.agent_configs.get(agent_name, {})
     
     def list_available_agents(self) -> List[str]:
@@ -243,6 +273,12 @@ class AgentFactory:
         except json.JSONDecodeError:
             return False
 
+# --- ENHANCEMENT: Agent lifecycle management (stub) ---
+    def retire_agent(self, agent_name: str):
+        if agent_name in self.templates:
+            del self.templates[agent_name]
+        # Optionally update registry or configs
+
 class AgentOrchestrationPipeline:
     """Pipeline for orchestrating agent workflows with handoff packets"""
     
@@ -250,6 +286,7 @@ class AgentOrchestrationPipeline:
         self.agent_factory = agent_factory
         self.active_tasks = {}
         self.completed_handoffs = []
+        self.knowledge_registry: Optional['AgentKnowledgeRegistry'] = None  # Ensure attribute exists for orchestration pipeline
     
     def create_agent_workflow(self, workflow_type: str, initial_context: Dict[str, Any]) -> str:
         """Create a new agent workflow"""
@@ -342,6 +379,45 @@ class AgentOrchestrationPipeline:
             "status": "active"
         }
         
+        self.active_tasks[workflow_id] = workflow
+        return workflow_id
+    
+    def _create_security_update_workflow(self, workflow_id: str, context: Dict[str, Any]) -> str:
+        """Create security update workflow (stub, can be expanded)"""
+        workflow = {
+            "id": workflow_id,
+            "type": "security_update",
+            "context": context,
+            "phases": [
+                {
+                    "name": "security_analysis",
+                    "agents": ["Security_Specialist", "Architect"],
+                    "parallel": False
+                },
+                {
+                    "name": "implementation",
+                    "agents": ["Coder"],
+                    "parallel": False
+                },
+                {
+                    "name": "review",
+                    "agents": ["Security_Specialist"],
+                    "parallel": False
+                },
+                {
+                    "name": "testing",
+                    "agents": ["QA_Guardian"],
+                    "parallel": False
+                },
+                {
+                    "name": "deployment",
+                    "agents": ["DevOps_Specialist"],
+                    "parallel": False
+                }
+            ],
+            "current_phase": 0,
+            "status": "active"
+        }
         self.active_tasks[workflow_id] = workflow
         return workflow_id
     

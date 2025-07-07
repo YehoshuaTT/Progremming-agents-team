@@ -28,7 +28,7 @@ from tools import git_tools
 from tools import execution_tools
 from tools import text_replacement
 from tools.handoff_cache import get_handoff_cache_manager, create_workflow_session, add_handoff_packet
-from tools.agent_knowledge_integration import get_knowledge_registry
+from tools.agent_knowledge_integration import AgentKnowledgeRegistry, get_knowledge_registry
 from llm_interface import llm_interface
 
 # Debug configuration
@@ -74,8 +74,10 @@ class EnhancedOrchestrator:
         self.recovery_strategy = recovery_strategy
         
         # Initialize knowledge integration system
-        self.knowledge_registry = None  # Will be initialized asynchronously
-        
+        self.knowledge_registry = AgentKnowledgeRegistry()  # Will be initialized asynchronously
+        self.agent_factory.set_knowledge_registry(self.knowledge_registry)
+        self.router.set_knowledge_registry(self.knowledge_registry)
+
         # State management
         self.active_workflows = {}
         self.agent_sessions = {}
@@ -278,7 +280,7 @@ class EnhancedOrchestrator:
             }
     
     async def execute_llm_call_with_cache(self, agent_name: str, prompt: str, 
-                                        context: Dict[str, Any] = None) -> str:
+                                        context: Optional[Dict[str, Any]] = None) -> str:
         """Execute LLM call with intelligent caching"""
         # Validate parameters
         if not agent_name or not isinstance(agent_name, str):
@@ -377,7 +379,7 @@ class EnhancedOrchestrator:
         return response
     
     async def _execute_llm_call_direct(self, agent_name: str, prompt: str, 
-                                     context: Dict[str, Any] = None) -> str:
+                                     context: Optional[Dict[str, Any]] = None) -> str:
         """Execute direct LLM call using the real LLM interface"""
         # Validate parameters
         if not agent_name or not isinstance(agent_name, str):
@@ -524,15 +526,6 @@ class EnhancedOrchestrator:
         if not context:
             raise ValueError("context cannot be empty")
         
-    async def _assign_initial_task(self, workflow_id: str, context: Dict[str, Any]):
-        """Assign the initial task in a workflow"""
-        # Validate parameters
-        if not workflow_id:
-            raise ValueError("workflow_id cannot be empty")
-        
-        if not context:
-            raise ValueError("context cannot be empty")
-        
         # Get the first agent from workflow requirements
         required_agents = context.get("required_agents", ["Product_Analyst"])
         if not required_agents:
@@ -602,28 +595,6 @@ class EnhancedOrchestrator:
                 data={
                     "workflow_id": workflow_id,
                     "agent": first_agent,
-                    "error": str(e)
-                }
-            )
-            raise Exception(f"Failed to assign initial task: {str(e)}")
-            
-            # Log task assignment
-            self.log_tools.record_log(
-                task_id=task_id,
-                event="TASK_ASSIGNED",
-                data={
-                    "workflow_id": workflow_id,
-                    "agent": "Product_Analyst",
-                    "task_description": task_description
-                }
-            )
-            
-        except Exception as e:
-            self.log_tools.record_log(
-                task_id="TASK_ASSIGNMENT_ERROR",
-                event="TASK_ASSIGNMENT_ERROR",
-                data={
-                    "workflow_id": workflow_id,
                     "error": str(e)
                 }
             )
@@ -830,7 +801,7 @@ class EnhancedOrchestrator:
                 )
                 return
                 
-            self.indexing_tools.index_document(artifact_path, content)
+            self.indexing_tools.index_document(artifact_path)
             
             self.log_tools.record_log(
                 task_id="INDEXING_SUCCESS",
@@ -859,7 +830,7 @@ class EnhancedOrchestrator:
             return await self._handle_human_approval_gate(handoff_packet)
         
         # Use router to determine next tasks
-        next_tasks = self.router.route_next_task(handoff_packet)
+        next_tasks = await self.router.route_next_task(handoff_packet)
         
         # Create and assign next tasks
         created_tasks = []
@@ -1190,6 +1161,7 @@ Please respond with one of the following:
         
         max_attempts = 3
         attempt = 0
+        error_info = None  # Initialize error_info
         
         while attempt < max_attempts:
             try:
@@ -1282,6 +1254,10 @@ Please respond with one of the following:
                 
                 # Record failure for circuit breaker
                 self.retry_manager.record_failure(error_info)
+        
+        # If we reach here, all attempts failed
+        error_message = error_info.error_message if error_info else "Unknown error"
+        raise Exception(f"Task failed after {max_attempts} attempts: Last error - {error_message}")
     
     async def _execute_agent_task(self, agent_name: str, task_prompt: str, context: Dict[str, Any]) -> Dict[str, Any]:
         """Execute a single agent task using real LLM calls"""

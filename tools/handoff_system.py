@@ -37,8 +37,8 @@ class HandoffPacket:
     next_step_suggestion: NextStepSuggestion
     notes: str
     timestamp: str
-    dependencies_satisfied: List[str] = None
-    blocking_issues: List[str] = None
+    dependencies_satisfied: Optional[List[str]] = None
+    blocking_issues: Optional[List[str]] = None
     
     def to_json(self) -> str:
         """Convert handoff packet to JSON string"""
@@ -58,10 +58,103 @@ class HandoffPacket:
 class ConductorRouter:
     """Intelligent routing system for the Conductor agent"""
     
-    def __init__(self):
+    def __init__(self, knowledge_registry=None):
         self.routing_rules = self._initialize_routing_rules()
+        self.knowledge_registry = knowledge_registry
+        
+    def set_knowledge_registry(self, registry):
+        """Set the knowledge registry for dynamic agent selection"""
+        self.knowledge_registry = registry
     
-    def _initialize_routing_rules(self) -> Dict[NextStepSuggestion, callable]:
+    async def select_best_agent_for_task(self, task_type: str, task_description: str, context: Dict[str, Any]) -> str:
+        """
+        Dynamically select the best agent for a given task using knowledge registry
+        """
+        if not self.knowledge_registry:
+            # Fallback to static mapping if no registry available
+            return self._get_static_agent_for_task(task_type)
+        
+        # Query registry for agents capable of handling this task type
+        suitable_agents = []
+        
+        for agent_name, agent_profile in self.knowledge_registry.agent_profiles.items():
+            # Check if agent has the required capabilities
+            agent_capabilities = agent_profile.get("capabilities", [])
+            
+            # Match task type to agent capabilities
+            if self._matches_task_requirements(task_type, agent_capabilities, task_description):
+                # Calculate suitability score
+                score = self._calculate_agent_suitability(agent_name, task_type, context)
+                suitable_agents.append((agent_name, score))
+        
+        if not suitable_agents:
+            # Fallback to static assignment
+            return self._get_static_agent_for_task(task_type)
+        
+        # Sort by score (highest first) and return best agent
+        suitable_agents.sort(key=lambda x: x[1], reverse=True)
+        return suitable_agents[0][0]
+    
+    def _matches_task_requirements(self, task_type: str, agent_capabilities: List[str], task_description: str) -> bool:
+        """Check if agent capabilities match task requirements"""
+        task_capability_map = {
+            "code_review": ["code_analysis", "security_review", "quality_assessment"],
+            "implementation": ["code_writing", "algorithm_implementation", "debugging"],
+            "testing": ["test_design", "test_execution", "quality_validation"],
+            "security_scan": ["security_review", "vulnerability_assessment", "code_analysis"],
+            "documentation": ["documentation_writing", "knowledge_organization", "user_guides"],
+            "deployment": ["deployment_automation", "infrastructure_management", "monitoring"],
+            "debugging": ["debugging", "code_analysis", "problem_solving"],
+            "architecture": ["system_design", "architecture_patterns", "technology_selection"]
+        }
+        
+        required_capabilities = task_capability_map.get(task_type, [])
+        
+        # Check if agent has any of the required capabilities
+        return any(capability in agent_capabilities for capability in required_capabilities)
+    
+    def _calculate_agent_suitability(self, agent_name: str, task_type: str, context: Dict[str, Any]) -> float:
+        """Calculate suitability score for an agent for a specific task"""
+        if not self.knowledge_registry:
+            return 0.5
+            
+        agent_profile = self.knowledge_registry.agent_profiles.get(agent_name, {})
+        
+        base_score = 0.5
+        
+        # Boost score based on agent's primary role matching task
+        primary_role = agent_profile.get("primary_role", "").lower()
+        if task_type in primary_role:
+            base_score += 0.3
+        
+        # Boost score based on workflow participation
+        workflow_participation = agent_profile.get("workflow_participation", [])
+        current_workflow = context.get("workflow_type", "")
+        if current_workflow in workflow_participation:
+            base_score += 0.2
+        
+        # Boost score based on tool availability
+        agent_tools = agent_profile.get("tools", [])
+        if len(agent_tools) > 0:
+            base_score += 0.1
+        
+        return min(base_score, 1.0)  # Cap at 1.0
+    
+    def _get_static_agent_for_task(self, task_type: str) -> str:
+        """Fallback static agent mapping"""
+        static_mapping = {
+            "code_review": "Code_Reviewer",
+            "implementation": "Coder",
+            "testing": "QA_Guardian",
+            "security_scan": "Security_Specialist",
+            "documentation": "Technical_Writer",
+            "deployment": "DevOps_Specialist",
+            "debugging": "Debugger",
+            "architecture": "Architect"
+        }
+        return static_mapping.get(task_type, "Coder")
+    
+    def _initialize_routing_rules(self) -> Dict[NextStepSuggestion, Any]:
         """Initialize routing rules mapping suggestions to actions"""
         return {
             NextStepSuggestion.CODE_REVIEW: self._handle_code_review_needed,
@@ -76,7 +169,7 @@ class ConductorRouter:
             NextStepSuggestion.DEBUG_NEEDED: self._handle_debug_needed,
         }
     
-    def route_next_task(self, handoff_packet: HandoffPacket) -> List[Dict[str, Any]]:
+    async def route_next_task(self, handoff_packet: HandoffPacket) -> List[Dict[str, Any]]:
         """
         Route the next task based on handoff packet
         Returns list of tasks to be created
@@ -88,16 +181,25 @@ class ConductorRouter:
         # Route based on next step suggestion
         suggestion = handoff_packet.next_step_suggestion
         if suggestion in self.routing_rules:
-            return self.routing_rules[suggestion](handoff_packet)
+            routing_method = self.routing_rules[suggestion]
+            # Handle async methods
+            if suggestion in [NextStepSuggestion.CODE_REVIEW, NextStepSuggestion.IMPLEMENTATION_NEEDED, NextStepSuggestion.TESTING_NEEDED]:
+                return await routing_method(handoff_packet)
+            else:
+                return routing_method(handoff_packet)
         else:
             return self._handle_unknown_suggestion(handoff_packet)
     
-    def _handle_code_review_needed(self, packet: HandoffPacket) -> List[Dict[str, Any]]:
-        """Handle code review routing"""
+    async def _handle_code_review_needed(self, packet: HandoffPacket) -> List[Dict[str, Any]]:
+        """Handle code review routing with dynamic agent selection"""
+        # Select best agents for code review and security scan
+        code_reviewer = await self.select_best_agent_for_task("code_review", "Code quality review", {"workflow_type": "code_review"})
+        security_specialist = await self.select_best_agent_for_task("security_scan", "Security vulnerability scan", {"workflow_type": "security_scan"})
+        
         return [
             {
                 "task_type": "code_review",
-                "agent": "Code_Reviewer",
+                "agent": code_reviewer,
                 "title": "Review Code Quality",
                 "description": f"Review code from task {packet.completed_task_id}",
                 "artifacts": packet.artifacts_produced,
@@ -105,7 +207,7 @@ class ConductorRouter:
             },
             {
                 "task_type": "security_scan",
-                "agent": "Security_Specialist",
+                "agent": security_specialist,
                 "title": "Scan for Vulnerabilities",
                 "description": f"Security scan for task {packet.completed_task_id}",
                 "artifacts": packet.artifacts_produced,
@@ -113,25 +215,31 @@ class ConductorRouter:
             }
         ]
     
-    def _handle_implementation_needed(self, packet: HandoffPacket) -> List[Dict[str, Any]]:
-        """Handle implementation routing"""
+    async def _handle_implementation_needed(self, packet: HandoffPacket) -> List[Dict[str, Any]]:
+        """Handle implementation routing with dynamic agent selection"""
+        # Select best agent for implementation
+        implementation_agent = await self.select_best_agent_for_task("implementation", "Code implementation", {"workflow_type": "implementation"})
+        
         return [
             {
                 "task_type": "implementation",
-                "agent": "Coder",
-                "title": "Implement Code to Pass Test",
-                "description": f"Implement code for failing tests from {packet.completed_task_id}",
-                "context": packet.notes,
+                "agent": implementation_agent,
+                "title": "Implement Solution",
+                "description": f"Implement solution for task {packet.completed_task_id}",
+                "artifacts": packet.artifacts_produced,
                 "priority": "high"
             }
         ]
     
-    def _handle_testing_needed(self, packet: HandoffPacket) -> List[Dict[str, Any]]:
-        """Handle testing routing"""
+    async def _handle_testing_needed(self, packet: HandoffPacket) -> List[Dict[str, Any]]:
+        """Handle testing routing with dynamic agent selection"""
+        # Select best agent for testing
+        testing_agent = await self.select_best_agent_for_task("testing", "Test implementation", {"workflow_type": "testing"})
+        
         return [
             {
                 "task_type": "testing",
-                "agent": "Tester",
+                "agent": testing_agent,
                 "title": "Write Tests",
                 "description": f"Write tests for implementation from {packet.completed_task_id}",
                 "artifacts": packet.artifacts_produced,
