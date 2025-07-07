@@ -288,7 +288,7 @@ class LLMInterface:
         
         return system_prompts.get(agent_name, "You are a helpful AI assistant.")
     
-    async def _mock_llm_response(self, agent_name: str, prompt: str, context: Dict[str, Any] = None) -> str:
+    async def _mock_llm_response(self, agent_name: str, prompt: str, context: Optional[Dict[str, Any]] = None) -> str:
         """Generate realistic mock responses when LLM API is not available"""
         # Simulate some processing time
         await asyncio.sleep(1)
@@ -312,7 +312,7 @@ class LLMInterface:
         else:
             return f"Task completed for {agent_name}: {prompt[:100]}..."
     
-    def _generate_product_analyst_response(self, prompt: str, context: Dict[str, Any] = None) -> str:
+    def _generate_product_analyst_response(self, prompt: str, context: Optional[Dict[str, Any]] = None) -> str:
         """Generate realistic Product Analyst response"""
         timestamp = datetime.now().isoformat()
         
@@ -407,7 +407,7 @@ HANDOFF_PACKET:
 }}
 ```'''
 
-    def _generate_architect_response(self, prompt: str, context: Dict[str, Any] = None) -> str:
+    def _generate_architect_response(self, prompt: str, context: Optional[Dict[str, Any]] = None) -> str:
         """Generate realistic Architect response"""
         timestamp = datetime.now().isoformat()
         
@@ -478,7 +478,7 @@ HANDOFF_PACKET:
 }}
 ```'''
 
-    def _generate_coder_response(self, prompt: str, context: Dict[str, Any] = None) -> str:
+    def _generate_coder_response(self, prompt: str, context: Optional[Dict[str, Any]] = None) -> str:
         """Generate realistic Coder response"""
         timestamp = datetime.now().isoformat()
         
@@ -655,7 +655,7 @@ HANDOFF_PACKET:
 }}
 ```'''
 
-    def _generate_code_reviewer_response(self, prompt: str, context: Dict[str, Any] = None) -> str:
+    def _generate_code_reviewer_response(self, prompt: str, context: Optional[Dict[str, Any]] = None) -> str:
         """Generate realistic Code Reviewer response"""
         timestamp = datetime.now().isoformat()
         
@@ -704,7 +704,7 @@ HANDOFF_PACKET:
 }}
 ```'''
 
-    def _generate_qa_response(self, prompt: str, context: Dict[str, Any] = None) -> str:
+    def _generate_qa_response(self, prompt: str, context: Optional[Dict[str, Any]] = None) -> str:
         """Generate realistic QA response"""
         timestamp = datetime.now().isoformat()
         
@@ -753,7 +753,7 @@ HANDOFF_PACKET:
 }}
 ```'''
 
-    def _generate_devops_response(self, prompt: str, context: Dict[str, Any] = None) -> str:
+    def _generate_devops_response(self, prompt: str, context: Optional[Dict[str, Any]] = None) -> str:
         """Generate realistic DevOps response"""
         timestamp = datetime.now().isoformat()
         
@@ -804,7 +804,7 @@ HANDOFF_PACKET:
 }}
 ```'''
 
-    def _generate_security_response(self, prompt: str, context: Dict[str, Any] = None) -> str:
+    def _generate_security_response(self, prompt: str, context: Optional[Dict[str, Any]] = None) -> str:
         """Generate realistic Security response"""
         timestamp = datetime.now().isoformat()
         
@@ -850,7 +850,7 @@ HANDOFF_PACKET:
 }}
 ```'''
 
-    def _generate_documentation_response(self, prompt: str, context: Dict[str, Any] = None) -> str:
+    def _generate_documentation_response(self, prompt: str, context: Optional[Dict[str, Any]] = None) -> str:
         """Generate realistic Documentation response"""
         timestamp = datetime.now().isoformat()
         

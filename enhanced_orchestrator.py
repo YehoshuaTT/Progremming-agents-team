@@ -9,9 +9,12 @@ import asyncio
 import logging
 import re
 import random
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, TYPE_CHECKING
 from datetime import datetime, timedelta
 from pathlib import Path
+
+if TYPE_CHECKING:
+    from workspace_organizer import WorkspaceOrganizer
 
 from tools.handoff_system import HandoffPacket, ConductorRouter, TaskStatus, NextStepSuggestion
 from tools.agent_factory import AgentFactory, AgentOrchestrationPipeline
@@ -52,7 +55,7 @@ class EnhancedOrchestrator:
     
     def __init__(self):
         # Initialize workspace organizer (will be set by workflow)
-        self.workspace_organizer = None
+        self.workspace_organizer: Optional['WorkspaceOrganizer'] = None
         
         # Initialize core tools (as modules, not classes)
         self.task_tools = task_tools
