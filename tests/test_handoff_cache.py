@@ -68,7 +68,9 @@ class TestHandoffCacheManager(unittest.TestCase):
         
         # Verify packet was added
         session = get_handoff_cache_manager().get_session(session_id)
-        self.assertIsNotNone(session)
+        self.assertIsNotNone(session, "Session should not be None")
+        if session is None:
+            return  # For static analysis
         self.assertEqual(len(session.handoff_packets), 1)
         self.assertEqual(session.handoff_packets[0], packet)
         self.assertEqual(session.current_agent, "Architect")
@@ -94,6 +96,9 @@ class TestHandoffCacheManager(unittest.TestCase):
         
         # Verify checkpoint was created
         session = get_handoff_cache_manager().get_session(session_id)
+        self.assertIsNotNone(session, "Session should not be None")
+        if session is None:
+            return
         self.assertIn("checkpoint_1", session.checkpoints)
         self.assertIn("checkpoint_checkpoint_1", session.metadata)
         self.assertEqual(get_handoff_cache_manager().stats["checkpoints_created"], 1)
@@ -120,6 +125,9 @@ class TestHandoffCacheManager(unittest.TestCase):
         self.assertTrue(success)
         
         session = get_handoff_cache_manager().get_session(session_id)
+        self.assertIsNotNone(session, "Session should not be None")
+        if session is None:
+            return
         self.assertEqual(session.state, WorkflowState.PAUSED)
         self.assertTrue(session.is_resumable())
         
@@ -129,6 +137,9 @@ class TestHandoffCacheManager(unittest.TestCase):
         self.assertEqual(last_checkpoint, packet)
         
         session = get_handoff_cache_manager().get_session(session_id)
+        self.assertIsNotNone(session, "Session should not be None")
+        if session is None:
+            return
         self.assertEqual(session.state, WorkflowState.RESUMED)
         self.assertEqual(get_handoff_cache_manager().stats["sessions_resumed"], 1)
 
@@ -150,6 +161,9 @@ class TestHandoffCacheManager(unittest.TestCase):
             add_handoff_packet(session_id, packet)
         
         session = get_handoff_cache_manager().get_session(session_id)
+        self.assertIsNotNone(session, "Session should not be None")
+        if session is None:
+            return
         self.assertEqual(session.state, WorkflowState.COMPLETED)
         self.assertEqual(session.completion_percentage, 100.0)
         self.assertEqual(get_handoff_cache_manager().stats["workflows_completed"], 1)
@@ -172,6 +186,9 @@ class TestHandoffCacheManager(unittest.TestCase):
         add_handoff_packet(session_id, packet)
         
         session = get_handoff_cache_manager().get_session(session_id)
+        self.assertIsNotNone(session, "Session should not be None")
+        if session is None:
+            return
         self.assertEqual(session.state, WorkflowState.FAILED)
         self.assertEqual(get_handoff_cache_manager().stats["workflows_failed"], 1)
 
@@ -199,7 +216,9 @@ class TestHandoffCacheManager(unittest.TestCase):
         # Simulate restart by reloading the manager
         manager = get_handoff_cache_manager()
         session = manager.get_session(session_id)
-        self.assertIsNotNone(session)
+        self.assertIsNotNone(session, "Session should not be None")
+        if session is None:
+            return
         self.assertEqual(session.workflow_name, "test_workflow")
         self.assertEqual(len(session.handoff_packets), 1)
         self.assertEqual(session.handoff_packets[0].completed_task_id, "task_1")
@@ -282,11 +301,14 @@ class TestHandoffCacheManager(unittest.TestCase):
         
         # Manually set completion to 100%
         session = get_handoff_cache_manager().get_session(session_id)
-        session.completion_percentage = 100.0 if session is not None else 0.0
+        self.assertIsNotNone(session, "Session should not be None")
+        if session is None:
+            return
+        session.completion_percentage = 100.0
         add_handoff_packet(session_id, packet)
         
         # Manually set old timestamp
-        session.updated_at = time.time() - (31 * 24 * 3600) if session is not None else time.time()
+        session.updated_at = time.time() - (31 * 24 * 3600)
         
         # Clean up expired sessions
         cleaned_count = get_handoff_cache_manager().cleanup_expired_sessions(max_age_days=30)
