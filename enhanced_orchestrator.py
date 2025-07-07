@@ -51,6 +51,9 @@ class EnhancedOrchestrator:
     """Enhanced orchestrator with full agent integration and intelligent routing"""
     
     def __init__(self):
+        # Initialize workspace organizer (will be set by workflow)
+        self.workspace_organizer = None
+        
         # Initialize core tools (as modules, not classes)
         self.task_tools = task_tools
         self.log_tools = log_tools
@@ -1695,9 +1698,13 @@ Generated: {datetime.now().isoformat()}
         saved_files = []
         
         try:
-            # Create workspace directory if it doesn't exist
-            workspace_dir = Path("workspace") / workflow_id
-            workspace_dir.mkdir(parents=True, exist_ok=True)
+            # Use workspace organizer if available, otherwise fall back to old method
+            if self.workspace_organizer:
+                workspace_dir = self.workspace_organizer.get_workflow_folder(workflow_id)
+            else:
+                workspace_dir = Path("workspace") / workflow_id
+                workspace_dir.mkdir(parents=True, exist_ok=True)
+            
             verbose_print(f"Created workspace directory: {workspace_dir}")
             
             # Look for code blocks in the response

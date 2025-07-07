@@ -11,10 +11,10 @@ from datetime import datetime
 # Load environment variables from .env file
 try:
     from dotenv import load_dotenv
-    load_dotenv()
-    print("✅ Environment variables loaded from .env file")
+    load_dotenv(override=True)  # Override existing environment variables
+    print("SUCCESS: Environment variables loaded from .env file")
 except ImportError:
-    print("⚠️  python-dotenv not found. Install with: pip install python-dotenv")
+    print("WARNING: python-dotenv not found. Install with: pip install python-dotenv")
     print("Using system environment variables only")
 
 # Debug configuration
@@ -61,13 +61,16 @@ class LLMInterface:
             debug_print("Using OpenAI API provider")
             verbose_print(f"OpenAI API key: {self.openai_api_key[:10]}...")
         else:
-            self.provider = "mock"
-            debug_print("No API key found - using mock responses")
+            self.provider = "none"
+            print("ERROR: No valid API key found!")
+            print("API KEY: Please set either GEMINI_API_KEY or OPENAI_API_KEY in your .env file")
+            print("EXAMPLE: GEMINI_API_KEY=your_api_key_here")
+            raise ValueError("No LLM API key configured. Cannot proceed without valid API access.")
             
         verbose_print(f"Provider selected: {self.provider}")
         verbose_print(f"Max tokens: {self.max_tokens}, Temperature: {self.temperature}")
         
-    async def call_llm(self, agent_name: str, prompt: str, context: Dict[str, Any] = None) -> str:
+    async def call_llm(self, agent_name: str, prompt: str, context: Optional[Dict[str, Any]] = None) -> str:
         """Call the LLM API with proper formatting for the specific agent"""
         debug_print(f"Starting LLM call for agent: {agent_name}")
         verbose_print(f"Prompt length: {len(prompt)} characters")
@@ -84,15 +87,19 @@ class LLMInterface:
             elif self.provider == "openai":
                 return await self._call_openai_api(agent_name, prompt, context)
             else:
-                return await self._mock_llm_response(agent_name, prompt, context)
+                # This should never happen now since we raise error if no API key
+                raise ValueError("No valid LLM provider configured")
                 
         except Exception as e:
             debug_print(f"LLM call failed: {str(e)}", "ERROR")
-            debug_print("Falling back to mock response", "WARNING")
-            # Fallback to mock response
-            return await self._mock_llm_response(agent_name, prompt, context)
+            print(f"CRITICAL ERROR: LLM API call failed!")
+            print(f"ERROR DETAILS: {str(e)}")
+            print(f"API KEY: Please check your API key and internet connection")
+            
+            # Don't fall back to mock - raise the error to alert user
+            raise Exception(f"LLM API call failed: {str(e)}. Please check your API configuration.")
     
-    async def _call_openai_api(self, agent_name: str, prompt: str, context: Dict[str, Any] = None) -> str:
+    async def _call_openai_api(self, agent_name: str, prompt: str, context: Optional[Dict[str, Any]] = None) -> str:
         """Call OpenAI API"""
         debug_print(f"Preparing OpenAI API call for {agent_name}")
         
@@ -128,7 +135,7 @@ class LLMInterface:
                     error_text = await response.text()
                     raise Exception(f"OpenAI API error {response.status}: {error_text}")
     
-    async def _call_gemini_api(self, agent_name: str, prompt: str, context: Dict[str, Any] = None) -> str:
+    async def _call_gemini_api(self, agent_name: str, prompt: str, context: Optional[Dict[str, Any]] = None) -> str:
         """Call Gemini API"""
         debug_print(f"Preparing Gemini API call for {agent_name}")
         
@@ -177,7 +184,7 @@ class LLMInterface:
                     error_text = await response.text()
                     raise Exception(f"Gemini API error {response.status}: {error_text}")
     
-    def _prepare_messages(self, agent_name: str, prompt: str, context: Dict[str, Any] = None) -> list:
+    def _prepare_messages(self, agent_name: str, prompt: str, context: Optional[Dict[str, Any]] = None) -> list:
         """Prepare messages with agent-specific system prompts (for OpenAI)"""
         system_prompt = self._get_system_prompt(agent_name)
         

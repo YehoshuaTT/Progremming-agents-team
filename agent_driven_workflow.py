@@ -31,6 +31,7 @@ from enhanced_orchestrator import EnhancedOrchestrator
 from llm_interface import LLMInterface
 from smart_workflow_router import SmartWorkflowRouter, ContextAnalysis, AgentRecommendation
 from tools.agent_knowledge_integration import get_knowledge_registry, AgentKnowledgeRegistry
+from workspace_organizer import WorkspaceOrganizer
 
 
 @dataclass
@@ -68,6 +69,7 @@ class AgentDrivenWorkflow:
     def __init__(self, debug_mode: bool = True):
         self.debug_mode = debug_mode
         self.orchestrator = EnhancedOrchestrator()
+        self.workspace_organizer = WorkspaceOrganizer()
         self.llm_interface = LLMInterface()
         self.smart_router = SmartWorkflowRouter()  # Add smart router
         self.knowledge_registry: Optional[AgentKnowledgeRegistry] = None  # Will be initialized asynchronously
@@ -91,6 +93,9 @@ class AgentDrivenWorkflow:
         if self.knowledge_registry is None:
             self.knowledge_registry = await get_knowledge_registry()
             self.debug_print("📚 Knowledge registry initialized")
+        
+        # Configure orchestrator with workspace organizer
+        self.orchestrator.workspace_organizer = self.workspace_organizer
     
     async def get_available_agents(self) -> List[str]:
         """Get list of all available agents from the dynamic registry"""
@@ -149,7 +154,7 @@ class AgentDrivenWorkflow:
         """Print debug messages if debug mode is enabled"""
         if self.debug_mode:
             timestamp = datetime.now().strftime("%H:%M:%S")
-            print(f"[{timestamp}] 🔍 {message}")
+            print(f"[{timestamp}] DEBUG: {message}")
     
     async def generate_agent_decision_prompt(self, agent_name: str, user_request: str, context: Dict) -> str:
         """Generate a comprehensive decision prompt for an agent"""
@@ -596,7 +601,7 @@ class AgentDrivenWorkflow:
         creating a truly autonomous multi-agent system.
         """
         
-        print(f"\n🚀 Starting AGENT-DRIVEN AUTONOMOUS WORKFLOW")
+        print(f"\n[WORKFLOW] Starting AGENT-DRIVEN AUTONOMOUS WORKFLOW")
         print(f"📝 User Request: {user_request}")
         print("=" * 80)
         
@@ -823,7 +828,7 @@ class AgentDrivenWorkflow:
             workflow_result['final_status'] = 'MAX_ITERATIONS_REACHED'
         
         # Add workspace_path for external access to artifacts
-        workflow_result['workspace_path'] = f"./workspace/{workflow_result['workflow_id']}"
+        workflow_result['workspace_path'] = str(self.workspace_organizer.get_workflow_folder(workflow_result['workflow_id']))
         
         # Add agent_decisions for backward compatibility with tests
         workflow_result['agent_decisions'] = workflow_result['decisions_made']
@@ -832,7 +837,56 @@ class AgentDrivenWorkflow:
         self.save_workflow_results(workflow_result)
         self.display_workflow_results(workflow_result)
         
+        # Finalize with cleanup
+        await self.finalize_workflow(workflow_result)
+        
+        # Clean up old runs (keep last 5 runs, remove older than 7 days)
+        await self.cleanup_after_run(keep_recent=5, days_to_keep=7)
+        
         return workflow_result
+    
+    async def finalize_workflow(self, workflow_result: Dict[str, Any], status: str = "completed"):
+        """Finalize the workflow with proper cleanup"""
+        try:
+            # Save final results using workspace organizer
+            if self.workspace_organizer:
+                self.workspace_organizer.save_workflow_result(workflow_result['workflow_id'], workflow_result)
+                
+                # Create workflow summary
+                summary = {
+                    "workflow_id": workflow_result['workflow_id'],
+                    "user_request": workflow_result.get('user_request', ''),
+                    "final_status": status,
+                    "total_iterations": workflow_result.get('total_iterations', 0),
+                    "agents_executed": len(workflow_result.get('execution_flow', [])),
+                    "artifacts_created": len(workflow_result.get('artifacts_created', [])),
+                    "completed_at": datetime.now().isoformat(),
+                    "workspace_path": workflow_result.get('workspace_path', '')
+                }
+                
+                self.workspace_organizer.save_workflow_summary(workflow_result['workflow_id'], summary)
+                
+                # Clean up temporary files
+                self.workspace_organizer.cleanup_temp_files()
+                
+                # Finalize the session
+                self.workspace_organizer.finalize_session(status)
+                
+                print(f"WORKFLOW: Finalized workflow {workflow_result['workflow_id']} with status: {status}")
+                
+        except Exception as e:
+            print(f"WORKFLOW: Error finalizing workflow: {e}")
+    
+    async def cleanup_after_run(self, keep_recent: int = 5, days_to_keep: int = 7):
+        """Clean up old workspace folders after workflow completion"""
+        try:
+            from cleanup_utility import WorkspaceCleanup
+            
+            cleanup = WorkspaceCleanup()
+            cleanup.full_cleanup(days_to_keep, keep_recent)
+            
+        except Exception as e:
+            print(f"CLEANUP: Error during cleanup: {e}")
     
     def choose_next_agent_from_parallel_results(self, parallel_results: List[Dict]) -> Optional[str]:
         """Choose next agent based on parallel execution results"""
@@ -973,7 +1027,7 @@ class AgentDrivenWorkflow:
         if workflow_result['final_status'] == 'COMPLETED':
             print("  ✅ Workflow completed successfully!")
             print("  🔄 All agents have approved the final result")
-            print("  🚀 Ready for production or further development")
+            print("  [READY] Ready for production or further development")
         elif workflow_result['final_status'] == 'NEEDS_HUMAN_REVIEW':
             print("  👤 Human review required")
             print("  🔄 Check the latest agent's concerns and provide guidance")
@@ -1140,7 +1194,7 @@ async def main():
         else:
             request = input("Enter your custom request: ")
         
-        print(f"\n🚀 Processing: '{request}'")
+        print(f"\n[PROCESSING] Processing: '{request}'")
         print("=" * 80)
         
         # Execute agent-driven workflow
