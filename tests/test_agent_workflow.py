@@ -9,6 +9,8 @@ import json
 import pytest
 import os
 import tempfile
+import shutil
+import glob
 from datetime import datetime
 from unittest.mock import Mock, patch, AsyncMock
 
@@ -198,6 +200,26 @@ class TestAgentDrivenWorkflow:
         """Set up test fixtures"""
         self.workflow = AgentDrivenWorkflow()
         self.test_request = "Create a simple calculator application"
+        self.workspace_dirs_created = []
+    
+    def teardown_method(self):
+        """Clean up test data"""
+        # Clean up any workspace directories created during tests
+        workspace_pattern = "./workspace/agent-driven-*"
+        for workspace_dir in glob.glob(workspace_pattern):
+            try:
+                if os.path.exists(workspace_dir):
+                    shutil.rmtree(workspace_dir, ignore_errors=True)
+            except (OSError, PermissionError):
+                pass
+        
+        # Also clean up any tracked directories
+        for workspace_dir in self.workspace_dirs_created:
+            try:
+                if os.path.exists(workspace_dir):
+                    shutil.rmtree(workspace_dir, ignore_errors=True)
+            except (OSError, PermissionError):
+                pass
     
     @pytest.mark.asyncio
     async def test_workflow_initialization(self):

@@ -77,8 +77,9 @@ class CleanupManager:
     def cleanup_workspace(self) -> None:
         """Clean up workspace test artifacts"""
         workspace_dirs = [
-            os.path.join(self.project_root, "workspace", "temp"),
+            os.path.join(self.project_root, "workspace", "temp*"),
             os.path.join(self.project_root, "workspace", "test_*"),
+            os.path.join(self.project_root, "workspace", "agent-driven-*"),
         ]
         
         for pattern in workspace_dirs:
