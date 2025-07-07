@@ -2,13 +2,15 @@ import unittest
 import os
 import json
 from tools.log_tools import record_log, EXECUTION_LOG
+from tests.base_test import BaseTestCase
 
-class TestLogTools(unittest.TestCase):
+class TestLogTools(BaseTestCase):
 
-    def tearDown(self):
-        # Clean up the log file
-        if os.path.exists(EXECUTION_LOG):
-            os.remove(EXECUTION_LOG)
+    def setUp(self):
+        # Call parent setUp
+        super().setUp()
+        # Track the execution log for cleanup
+        self.add_test_file(EXECUTION_LOG)
 
     def test_record_log(self):
         # Clear the log file first

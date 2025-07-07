@@ -2,13 +2,25 @@ import os
 import json
 from datetime import datetime
 
-TASKS_DIR = "c:\\Users\\a0526\\DEV\\Agents\\tasks"
+# Use project-relative path for tasks
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+TASKS_DIR = os.path.join(PROJECT_ROOT, "tasks")
 
-def create_new_task(title: str, description: str, parent_task_id: str = None):
+def create_new_task(title: str, description: str, parent_task_id: str | None = None):
     """Creates a new task directory and task.json file."""
+    global TASKS_DIR
+    
     task_id = f"TASK-{int(datetime.now().timestamp())}"
     task_dir = os.path.join(TASKS_DIR, task_id)
-    os.makedirs(task_dir, exist_ok=True)
+    
+    try:
+        os.makedirs(task_dir, exist_ok=True)
+    except PermissionError:
+        # Fallback to temp directory if project tasks not accessible
+        import tempfile
+        TASKS_DIR = os.path.join(tempfile.gettempdir(), "agent_tasks")
+        task_dir = os.path.join(TASKS_DIR, task_id)
+        os.makedirs(task_dir, exist_ok=True)
 
     task_data = {
         "id": task_id,

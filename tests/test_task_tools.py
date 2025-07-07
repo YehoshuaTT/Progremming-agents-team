@@ -2,19 +2,18 @@ import unittest
 import os
 import json
 from tools.task_tools import create_new_task, update_task_status, TASKS_DIR
+from tests.base_test import BaseTestCase
 
-class TestTaskTools(unittest.TestCase):
+class TestTaskTools(BaseTestCase):
 
     def setUp(self):
+        # Call parent setUp
+        super().setUp()
         # Create a dummy task for testing
         self.task_id = create_new_task("Test Task", "This is a test task.")
-
-    def tearDown(self):
-        # Clean up the dummy task directory
+        # Track the task directory for cleanup
         task_dir = os.path.join(TASKS_DIR, self.task_id)
-        for file in os.listdir(task_dir):
-            os.remove(os.path.join(task_dir, file))
-        os.rmdir(task_dir)
+        self.add_test_directory(task_dir)
 
     def test_create_new_task(self):
         self.assertTrue(os.path.exists(os.path.join(TASKS_DIR, self.task_id)))
