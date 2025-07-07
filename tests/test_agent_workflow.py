@@ -275,14 +275,35 @@ class TestAgentDrivenWorkflow:
         """Test complex workflow execution"""
         complex_request = "Build a secure e-commerce platform with user authentication, payment processing, and admin dashboard"
         
-        with patch.object(self.workflow.orchestrator, 'execute_task_with_recovery') as mock_execute:
-            # Mock successful task execution
-            mock_execute.return_value = {
-                "status": "success",
-                "result": "Task completed successfully",
-                "artifacts": ["architecture.md", "security_plan.md"]
+        # Simulate multiple iterations by returning NEXT_AGENT for first two calls, then COMPLETE
+        from agent_driven_workflow import AgentDecision
+        call_results = [
+            {
+                "response": "Step 1 complete",
+                "decision": AgentDecision(action="NEXT_AGENT", target="Coder", reason="Step 1 done", confidence=0.8),
+                "agent_name": "Product_Analyst",
+                "iteration": 1,
+                "artifacts_created": ["architecture.md"]
+            },
+            {
+                "response": "Step 2 complete",
+                "decision": AgentDecision(action="NEXT_AGENT", target="QA_Guardian", reason="Step 2 done", confidence=0.8),
+                "agent_name": "Coder",
+                "iteration": 2,
+                "artifacts_created": ["security_plan.md"]
+            },
+            {
+                "response": "All done",
+                "decision": AgentDecision(action="COMPLETE", reason="All done", confidence=0.9),
+                "agent_name": "QA_Guardian",
+                "iteration": 3,
+                "artifacts_created": ["final_report.md"]
             }
-            
+        ]
+        from unittest.mock import AsyncMock
+        mock_execute = AsyncMock(side_effect=call_results + [call_results[-1]]*10)
+        
+        with patch.object(self.workflow, 'execute_agent_with_decision', mock_execute):
             result = await self.workflow.run_agent_driven_workflow(complex_request)
             
             assert result is not None
