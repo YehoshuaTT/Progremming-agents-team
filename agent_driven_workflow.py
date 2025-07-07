@@ -43,6 +43,18 @@ class AgentDecision:
     confidence: float = 1.0
     metadata: Dict = None
 
+    def to_dict(self):
+        """Convert AgentDecision to a dictionary for JSON serialization"""
+        return {
+            'action': self.action,
+            'target': self.target,
+            'targets': self.targets,
+            'condition': self.condition,
+            'reason': self.reason,
+            'confidence': self.confidence,
+            'metadata': self.metadata
+        }
+
 
 class AgentDrivenWorkflow:
     """
@@ -1006,15 +1018,7 @@ class AgentDrivenWorkflow:
     def make_serializable(self, obj):
         """Convert AgentDecision objects to dictionaries for JSON serialization"""
         if isinstance(obj, AgentDecision):
-            return {
-                'action': obj.action,
-                'target': obj.target,
-                'targets': obj.targets,
-                'condition': obj.condition,
-                'reason': obj.reason,
-                'confidence': obj.confidence,
-                'metadata': obj.metadata
-            }
+            return obj.to_dict()
         elif isinstance(obj, dict):
             return {k: self.make_serializable(v) for k, v in obj.items()}
         elif isinstance(obj, list):
