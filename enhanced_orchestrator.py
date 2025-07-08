@@ -32,7 +32,7 @@ from tools import execution_tools
 from tools import text_replacement
 from tools.handoff_cache import get_handoff_cache_manager, create_workflow_session, add_handoff_packet
 from tools.agent_knowledge_integration import AgentKnowledgeRegistry, get_knowledge_registry
-from llm_interface import llm_interface
+from llm_interface import llm_interface, get_llm_interface
 
 # Debug configuration
 DEBUG_MODE = os.getenv('DEBUG_MODE', 'false').lower() == 'true'
@@ -413,7 +413,9 @@ class EnhancedOrchestrator:
         # Use the real LLM interface
         try:
             debug_print("Calling LLM interface...")
-            response = await llm_interface.call_llm(agent_name, prompt, context)
+            # Get the LLM interface instance, creating it if needed
+            current_llm_interface = llm_interface if llm_interface is not None else get_llm_interface()
+            response = await current_llm_interface.call_llm(agent_name, prompt, context)
             
             debug_print(f"LLM response received: {len(response)} characters")
             verbose_print(f"Response preview: {response[:200]}...")
