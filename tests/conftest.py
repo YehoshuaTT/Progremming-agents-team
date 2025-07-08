@@ -7,6 +7,7 @@ import os
 import pytest
 import glob
 import shutil
+import fnmatch
 
 # Add the project root directory to Python path
 project_root = os.path.dirname(os.path.abspath(__file__))
@@ -90,15 +91,27 @@ def cleanup_session():
     cleanup_patterns = [
         "./workspace/RUN-*",          # Workspace organizer sessions
         "./workspace/WORKFLOW-*",     # Legacy workflow directories  
-        "./temp*",                    # Any temp directories
-        "./test_*",                   # Test directories
-        "./**/temp*",                 # Nested temp directories
+        "./temp_dir_*",               # Temporary directories (not temp files with content)
+        "./test_workspace_*",         # Test workspace directories
+        "./tempfile_*",               # Actual temporary files
         "./cache/test*",              # Test cache files
         "./logs/test*",               # Test log files
         "./artifacts/test*",          # Test artifact files
         "./results/test*",            # Test result files
         "./**/__pycache__",           # Python cache directories
         "./**/*.pyc",                 # Python cache files
+        "./sandbox/temp",             # Sandbox temp directories only
+        "./sandbox/**/temp",          # Nested sandbox temp directories
+        "./tests/sandbox/temp*",      # Tests sandbox temp files
+    ]
+    
+    # Exclude important files that contain "temp" in their name
+    excluded_files = [
+        "temp_prompt_test.py",        # Prompt optimization analysis
+        "template_*",                 # Template files
+        "config_template.py",         # Configuration template
+        "*_template.py",              # Any template files
+        "*_template.*",               # Any template files with any extension
     ]
     
     files_removed = 0
@@ -106,6 +119,26 @@ def cleanup_session():
     
     for pattern in cleanup_patterns:
         for path in glob.glob(pattern, recursive=True):
+            # Check if this file should be excluded
+            filename = os.path.basename(path)
+            should_exclude = False
+            
+            for excluded_pattern in excluded_files:
+                if excluded_pattern.startswith('*') or excluded_pattern.endswith('*'):
+                    # Handle wildcard patterns
+                    if fnmatch.fnmatch(filename, excluded_pattern):
+                        should_exclude = True
+                        break
+                else:
+                    # Handle exact matches
+                    if excluded_pattern in filename:
+                        should_exclude = True
+                        break
+            
+            if should_exclude:
+                print(f"⚠ Skipping excluded file: {path}")
+                continue
+                
             try:
                 if os.path.isfile(path):
                     os.remove(path)
