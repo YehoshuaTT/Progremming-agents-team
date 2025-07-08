@@ -27,21 +27,35 @@ def cleanup_workspace_directories():
     """Clean up workspace directories created by tests"""
     workspace_patterns = [
         "./workspace/agent-driven-*",
-        "./workspace/test-*",
-        "./workspace/temp*"
+        "./workspace/test-*", 
+        "./workspace/temp*",
+        "./workspace/RUN-*",          # Workspace organizer run directories
+        "./workspace/WORKFLOW-*",     # Legacy workflow directories
+        "**/test_workspace*",         # Test workspace directories
+        "**/auth_test_*",            # Authentication test directories
     ]
     
+    print("CLEANUP: Removing test workspace directories...")
+    removed_count = 0
+    
     for pattern in workspace_patterns:
-        for workspace_dir in glob.glob(pattern):
+        for workspace_dir in glob.glob(pattern, recursive=True):
             try:
-                if os.path.exists(workspace_dir):
+                if os.path.exists(workspace_dir) and os.path.isdir(workspace_dir):
                     shutil.rmtree(workspace_dir, ignore_errors=True)
-            except (OSError, PermissionError):
-                pass
+                    removed_count += 1
+                    print(f"✓ Removed workspace: {workspace_dir}")
+            except (OSError, PermissionError) as e:
+                print(f"⚠ Could not remove workspace {workspace_dir}: {e}")
+    
+    if removed_count > 0:
+        print(f"✅ Removed {removed_count} workspace directories")
+    else:
+        print("✅ No workspace directories to clean up")
 
 
 @pytest.fixture(autouse=True)
-def cleanup_after_test():
+def cleanup_after_test(request):
     """Automatically cleanup test data after each test"""
     # Reset tracking before test
     reset_cleanup_tracking()
@@ -50,14 +64,59 @@ def cleanup_after_test():
     yield
     
     # Cleanup after test
+    test_name = request.node.name
+    print(f"\n🧹 Cleaning up after test: {test_name}")
+    
     cleanup_test_data()
     cleanup_workspace_directories()
+    
+    print(f"✅ Cleanup complete for: {test_name}")
 
 
 @pytest.fixture(scope="session", autouse=True)
 def cleanup_session():
-    """Cleanup at the end of the entire test session"""
+    """Comprehensive cleanup at the end of the entire test session"""
     yield
+    
+    print("\n" + "="*50)
+    print("FINAL TEST CLEANUP: Removing all generated files...")
+    print("="*50)
+    
     # Final cleanup
     cleanup_test_data()
     cleanup_workspace_directories()
+    
+    # Additional comprehensive cleanup
+    cleanup_patterns = [
+        "./workspace/RUN-*",          # Workspace organizer sessions
+        "./workspace/WORKFLOW-*",     # Legacy workflow directories  
+        "./temp*",                    # Any temp directories
+        "./test_*",                   # Test directories
+        "./**/temp*",                 # Nested temp directories
+        "./cache/test*",              # Test cache files
+        "./logs/test*",               # Test log files
+        "./artifacts/test*",          # Test artifact files
+        "./results/test*",            # Test result files
+        "./**/__pycache__",           # Python cache directories
+        "./**/*.pyc",                 # Python cache files
+    ]
+    
+    files_removed = 0
+    dirs_removed = 0
+    
+    for pattern in cleanup_patterns:
+        for path in glob.glob(pattern, recursive=True):
+            try:
+                if os.path.isfile(path):
+                    os.remove(path)
+                    files_removed += 1
+                    print(f"✓ Removed file: {path}")
+                elif os.path.isdir(path):
+                    shutil.rmtree(path, ignore_errors=True)
+                    dirs_removed += 1
+                    print(f"✓ Removed directory: {path}")
+            except (OSError, PermissionError) as e:
+                print(f"⚠ Could not remove {path}: {e}")
+    
+    print(f"\n✅ CLEANUP COMPLETE: Removed {files_removed} files and {dirs_removed} directories")
+    print("="*50)
