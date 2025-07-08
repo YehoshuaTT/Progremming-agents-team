@@ -1,0 +1,6 @@
+{
+  "default_workspace": "workspace",
+  "auto_approve_high_certainty": true,
+  "verbose": false,
+  "output_format": "json"
+}
