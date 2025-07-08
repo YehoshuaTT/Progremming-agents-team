@@ -206,6 +206,10 @@ class LLMInterface:
         
         return messages
     
+    def has_real_api_key(self) -> bool:
+        """Check if a real API key is available (not using mock provider)"""
+        return self.provider != "mock"
+    
     def _get_system_prompt(self, agent_name: str) -> str:
         """Get system prompt for specific agent"""
         system_prompts = {
