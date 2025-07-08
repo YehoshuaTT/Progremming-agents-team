@@ -36,8 +36,9 @@ class TestLLMInterface:
     def test_llm_interface_initialization_no_keys(self):
         """Test LLM interface initialization without API keys"""
         with patch.dict(os.environ, {}, clear=True):
-            interface = LLMInterface()
-            assert interface.provider == "mock"
+            # Should raise ValueError when no API keys are configured
+            with pytest.raises(ValueError, match="No LLM API key configured"):
+                LLMInterface()
     
     def test_system_prompts_exist_for_all_agents(self):
         """Test that system prompts exist for all agent types"""
@@ -281,20 +282,29 @@ class TestErrorHandling:
         """Test LLM call with invalid agent name"""
         orchestrator = EnhancedOrchestrator()
         
+        # Test with empty string - should raise ValueError
         with pytest.raises(ValueError, match="agent_name must be a non-empty string"):
             await orchestrator._execute_llm_call_direct("", "test prompt")
         
+        # Test with None - should raise ValueError
         with pytest.raises(ValueError, match="agent_name must be a non-empty string"):
             await orchestrator._execute_llm_call_direct(None, "test prompt")
+        
+        # Test with invalid agent name - should not raise but handle gracefully
+        result = await orchestrator._execute_llm_call_direct("invalid_agent", "test prompt")
+        assert result is not None
+        assert isinstance(result, str)
     
     @pytest.mark.asyncio
     async def test_llm_call_with_invalid_prompt(self):
         """Test LLM call with invalid prompt"""
         orchestrator = EnhancedOrchestrator()
         
+        # Test with empty string - should raise ValueError
         with pytest.raises(ValueError, match="prompt must be a non-empty string"):
             await orchestrator._execute_llm_call_direct("Product_Analyst", "")
         
+        # Test with None - should raise ValueError  
         with pytest.raises(ValueError, match="prompt must be a non-empty string"):
             await orchestrator._execute_llm_call_direct("Product_Analyst", None)
 

@@ -74,6 +74,9 @@ class AgentDrivenWorkflow:
         self.smart_router = SmartWorkflowRouter()  # Add smart router
         self.knowledge_registry: Optional[AgentKnowledgeRegistry] = None  # Will be initialized asynchronously
         
+        # Configure orchestrator with workspace organizer immediately
+        self.orchestrator.workspace_organizer = self.workspace_organizer
+        
         # Workflow state
         self.workflow_state = {
             'current_agent': None,

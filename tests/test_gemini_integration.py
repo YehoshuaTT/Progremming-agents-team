@@ -160,8 +160,9 @@ class TestGeminiAPIIntegration:
         """Test fallback to mock when no API key"""
         # Create interface without API key
         with patch.dict(os.environ, {}, clear=True):
-            interface = LLMInterface()
-            assert interface.provider == "mock"
+            # Should raise ValueError when no API keys are configured
+            with pytest.raises(ValueError, match="No LLM API key configured"):
+                LLMInterface()
     
     @pytest.mark.asyncio
     async def test_response_parsing(self, llm_interface):
