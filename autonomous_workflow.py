@@ -217,6 +217,31 @@ class WorkflowDecisionEngine:
             'action': 'CONTINUE',
             'reason': 'No explicit decision found, continuing with original workflow'
         }
+    
+    def should_continue_to_next_agent(self, result: Dict, current_agent: str, next_agent: str) -> Tuple[bool, str]:
+        """Determine if workflow should continue to the next agent"""
+        
+        # Extract agent's decision from the result
+        response = result.get('response', '')
+        
+        # Parse agent decision
+        decision = self.parse_agent_decision(response)
+        
+        if decision['action'] == 'COMPLETE':
+            return False, "Current agent marked task as complete"
+        elif decision['action'] == 'HUMAN_REVIEW':
+            return False, "Current agent requested human review"
+        elif decision['action'] == 'RETRY':
+            return False, "Current agent requested retry"
+        elif decision['action'] == 'NEXT_AGENT':
+            # Check if the specified agent matches the next planned agent
+            if decision.get('target', '').replace(' ', '_') == next_agent:
+                return True, f"Agent recommended continuing to {next_agent}"
+            else:
+                return False, f"Agent recommended {decision.get('target')} instead of {next_agent}"
+        
+        # Default: continue if no explicit decision
+        return True, "No explicit stop decision, continuing workflow"
 
 
 class SmartAgentWorkflow:
@@ -224,6 +249,7 @@ class SmartAgentWorkflow:
     
     def __init__(self):
         self.orchestrator = EnhancedOrchestrator()
+        self.decision_engine = WorkflowDecisionEngine()
         self.workflow_history = []
         
         # Agent decision rules - each agent knows what to do
@@ -379,11 +405,6 @@ class SmartAgentWorkflow:
                     decision['confidence'] = 7
         
         return decision
-        
-    def debug_print(self, message: str):
-        """Print debug message with timestamp"""
-        timestamp = datetime.now().strftime("%H:%M:%S")
-        print(f"[{timestamp}] 🤖 {message}")
     
     async def execute_autonomous_workflow(self, request: str) -> Dict:
         """Execute a fully autonomous workflow"""
@@ -429,11 +450,17 @@ class SmartAgentWorkflow:
             self.debug_print(f"Executing {agent}...")
             
             try:
-                result = await self.orchestrator.execute_llm_call_with_cache(
+                result_text = await self.orchestrator.execute_llm_call_with_cache(
                     agent_name=agent,
                     prompt=context,
-                    workflow_id=f"{workflow_id}-{i+1:03d}"
+                    context={'workflow_id': f"{workflow_id}-{i+1:03d}"}
                 )
+                
+                # Wrap result in dictionary format expected by the rest of the method
+                result = {
+                    'response': result_text,
+                    'artifacts_created': []  # Default empty list
+                }
                 
                 workflow_result['agents_executed'].append({
                     'agent': agent,
@@ -566,7 +593,7 @@ def main():
     
     async def run_workflow():
         # Create workflow
-        workflow = AutonomousWorkflow()
+        workflow = SmartAgentWorkflow()
         
         # Test different types of requests
         test_requests = [
