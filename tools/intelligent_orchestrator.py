@@ -192,12 +192,24 @@ class AgentRegistry:
         agent_names = self.role_mappings.get(role, [])
         return [self.agents[name] for name in agent_names if name in self.agents]
     
-    def get_available_agents(self, role: Optional[AgentRole] = None) -> List[AgentInfo]:
-        """Get all available agents, optionally filtered by role"""
+    def get_agents_by_specialty(self, specialty: str) -> List[AgentInfo]:
+        """Get all agents with a specific specialty"""
+        return [agent for agent in self.agents.values() 
+                if specialty in agent.specialties]
+
+    def get_available_agents(self, role: Optional[AgentRole] = None, 
+                           workload_threshold: Optional[float] = None) -> List[AgentInfo]:
+        """Get all available agents, optionally filtered by role and workload threshold"""
         agents = self.agents.values()
         
         if role:
             agents = [a for a in agents if a.role == role]
+        
+        # Filter by workload threshold if provided
+        if workload_threshold is not None:
+            # workload_threshold is a percentage (0.8 = 80% of max capacity)
+            # Filter agents whose workload is below this threshold
+            agents = [a for a in agents if (a.workload / a.max_workload) < workload_threshold]
         
         return [a for a in agents if a.can_take_task()]
     
@@ -411,6 +423,48 @@ class CommunicationHub:
         
         return sent_count
     
+    async def broadcast_message(self, 
+                             sender: str, 
+                             message_content: str, 
+                             message_type: CommunicationType = CommunicationType.NOTIFICATION,
+                             target_roles: Optional[List[AgentRole]] = None,
+                             exclude_agents: Optional[List[str]] = None) -> int:
+        """Broadcast a message to multiple agents"""
+        recipients = []
+        
+        if target_roles:
+            # Send to specific roles
+            for role in target_roles:
+                agents = self.agent_registry.get_agents_by_role(role)
+                recipients.extend([agent.name for agent in agents])
+        else:
+            # Send to all agents
+            recipients = list(self.agent_registry.agents.keys())
+        
+        # Remove excluded agents
+        if exclude_agents:
+            recipients = [r for r in recipients if r not in exclude_agents]
+        
+        # Remove sender from recipients
+        if sender in recipients:
+            recipients.remove(sender)
+        
+        # Send messages
+        sent_count = 0
+        for recipient in recipients:
+            message = AgentMessage(
+                sender=sender,
+                recipient=recipient,
+                message_type=message_type,
+                content=message_content,
+                requires_response=False
+            )
+            
+            if await self.send_message(message):
+                sent_count += 1
+        
+        return sent_count
+    
     async def get_conversation_history(self, agent1: str, agent2: str) -> List[AgentMessage]:
         """Get conversation history between two agents"""
         conversations = []
@@ -508,8 +562,12 @@ class IntelligentOrchestrator:
         # Evaluate decision using certainty framework
         evaluation = await self.communication_hub.certainty_framework.evaluate_decision(decision)
         
+        # Generate a decision ID from agent and timestamp
+        decision_id = f"{agent_name}_{decision.timestamp}"
+        
         result = {
             'decision_processed': True,
+            'decision_id': decision_id,  # Use generated decision_id
             'agent': agent_name,
             'certainty_level': decision.certainty_level,
             'actions_taken': []
@@ -743,6 +801,15 @@ class IntelligentOrchestrator:
         self.agent_weights[agent_id] = weight
         
         logger.info(f"Registered agent {agent_id} with role {role.value} and capabilities {capabilities}")
+        
+        # Return agent information
+        return {
+            "agent_id": agent_id,
+            "role": role.value,
+            "capabilities": capabilities,
+            "weight": weight,
+            "registered": True
+        }
 
 # Example usage and testing
 if __name__ == "__main__":

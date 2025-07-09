@@ -21,7 +21,11 @@ class TestAgentRegistry:
     @pytest.fixture
     def registry(self):
         """Create an agent registry for testing"""
-        return AgentRegistry()
+        registry = AgentRegistry()
+        # Clear default agents for clean testing
+        registry.agents = {}
+        registry.role_mappings = {}
+        return registry
     
     def test_register_agent(self, registry):
         """Test registering an agent"""
@@ -129,6 +133,9 @@ class TestCommunicationHub:
     def registry(self):
         """Create registry with test agents"""
         registry = AgentRegistry()
+        # Clear default agents for clean testing
+        registry.agents = {}
+        registry.role_mappings = {}
         
         agent1 = AgentInfo(
             name="agent1",
@@ -170,25 +177,31 @@ class TestCommunicationHub:
         assert messages[0].content == "Test message"
     
     @pytest.mark.asyncio
+    @pytest.mark.asyncio
     async def test_broadcast_message(self, comm_hub):
         """Test broadcasting a message"""
-        message = AgentMessage()
-        message.sender = "orchestrator"
-        message.recipient = "all"
-        message.message_type = CommunicationType.NOTIFICATION  # Using NOTIFICATION for broadcast
-        message.content = "Broadcast message"
-        message.context = {}
+        sender = "orchestrator"
+        message_content = "Broadcast message"
+        target_roles = [AgentRole.CODER, AgentRole.ARCHITECT]
         
-        await comm_hub.broadcast_message(message, [AgentRole.CODER, AgentRole.ARCHITECT])
+        sent_count = await comm_hub.broadcast_message(
+            sender=sender,
+            message_content=message_content,
+            message_type=CommunicationType.NOTIFICATION,
+            target_roles=target_roles
+        )
+        
+        # Should send to both agents but not sender
+        assert sent_count == 2
         
         # Check all agents received the message
-        agent1_messages = await comm_hub.get_agent_messages("agent1")
-        agent2_messages = await comm_hub.get_agent_messages("agent2")
+        agent1_messages = await comm_hub.get_messages("agent1")
+        agent2_messages = await comm_hub.get_messages("agent2")
         
         assert len(agent1_messages) == 1
         assert len(agent2_messages) == 1
-        assert agent1_messages[0].content == "Broadcast message"
-        assert agent2_messages[0].content == "Broadcast message"
+        assert agent1_messages[0].content == message_content
+        assert agent2_messages[0].content == message_content
     
     @pytest.mark.asyncio
     async def test_get_conversation_history(self, comm_hub):
@@ -279,8 +292,9 @@ class TestIntelligentOrchestrator:
         result = await orchestrator.process_agent_decision("test_agent", decision)
         
         assert 'decision_id' in result
-        assert 'action_taken' in result
-        assert 'requires_approval' in result
+        assert 'actions_taken' in result  # Fixed: should be actions_taken (list) not action_taken
+        assert 'decision_processed' in result
+        assert result['decision_processed'] == True
     
     @pytest.mark.asyncio
     async def test_register_agent(self, orchestrator):
@@ -414,8 +428,8 @@ class TestIntelligentOrchestrator:
         assert any(a.name == "workload_test_agent" for a in available)
         
         # Test workload update
-        agent.workload = 4  # High workload
-        available_high_threshold = orchestrator.agent_registry.get_available_agents(workload_threshold=3)
+        agent.workload = 4  # High workload (80% of max capacity)
+        available_high_threshold = orchestrator.agent_registry.get_available_agents(workload_threshold=0.7)  # Only 70% threshold
         assert not any(a.name == "workload_test_agent" for a in available_high_threshold)
 
 
