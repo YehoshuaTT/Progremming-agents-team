@@ -10,6 +10,7 @@ from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
+from enum import Enum
 
 from .intelligent_orchestrator import (
     IntelligentOrchestrator, AgentRole, CommunicationType, 
@@ -614,7 +615,18 @@ class IntegratedWorkflowSystem:
         context = self.active_workflows[workflow_id]
         
         export_data = {
-            'workflow_context': context.to_dict(),
+            'workflow_context': {
+                'workflow_id': context.workflow_id,
+                'user_prompt': context.user_prompt,
+                'current_phase': context.current_phase.value,
+                'project_plan': context.project_plan,
+                'chat_session_id': context.chat_session_id,
+                'progress_tracker_id': context.progress_tracker_id,
+                'active_agents': context.active_agents,
+                'decisions_made': [self._serialize_decision(decision) for decision in context.decisions_made],
+                'pending_approvals': context.pending_approvals,
+                'created_files': context.created_files
+            },
             'agent_registry': [
                 {
                     'name': agent.name,
@@ -631,6 +643,19 @@ class IntegratedWorkflowSystem:
             json.dump(export_data, f, indent=2)
         
         logger.info(f"Exported workflow {workflow_id} to {filepath}")
+
+    def _serialize_decision(self, decision) -> Dict[str, Any]:
+        """Convert a decision object to a JSON-serializable dictionary"""
+        if hasattr(decision, 'to_dict'):
+            decision_dict = decision.to_dict()
+        else:
+            decision_dict = decision
+        
+        # Handle enum serialization
+        if isinstance(decision_dict.get('decision_type'), Enum):
+            decision_dict['decision_type'] = decision_dict['decision_type'].value
+        
+        return decision_dict
 
 # Example usage
 if __name__ == "__main__":

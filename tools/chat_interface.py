@@ -22,14 +22,13 @@ import logging
 import asyncio
 from datetime import datetime
 from typing import Dict, List, Optional, Any, Tuple
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 from enum import Enum
+import uuid
 
 from .intelligent_orchestrator import IntelligentOrchestrator, AgentConsultationResult
 from .certainty_framework import CertaintyFramework, CertaintyLevel
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class MessageType(Enum):
@@ -49,7 +48,102 @@ class ConversationMessage:
     timestamp: datetime
     agent_id: Optional[str] = None
     certainty_level: Optional[CertaintyLevel] = None
-    metadata: Optional[Dict[str, Any]] = None
+    metadata: Optional[Dict[str, Any]] = field(default_factory=dict)
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert message to dictionary"""
+        result = {
+            "id": self.id,
+            "type": self.type.value,
+            "content": self.content,
+            "timestamp": self.timestamp.isoformat()
+        }
+        if self.agent_id:
+            result["agent_id"] = self.agent_id
+        if self.certainty_level:
+            result["certainty_level"] = self.certainty_level.value
+        if self.metadata:
+            result["metadata"] = self.metadata
+        return result
+
+class ConversationSession:
+    """Represents a user conversation session"""
+    
+    def __init__(self, session_id: str, user_id: str):
+        self.session_id = session_id
+        self.user_id = user_id
+        self.messages: List[ConversationMessage] = []
+        self.start_time = datetime.now()
+        self.last_active_time = self.start_time
+        self.active = True
+        self.context = {}
+    
+    def add_message(self, message: ConversationMessage):
+        """Add a message to the session"""
+        self.messages.append(message)
+        self.last_active_time = datetime.now()
+    
+    def get_message_history(self, count: Optional[int] = None) -> List[ConversationMessage]:
+        """Get recent message history"""
+        if count is None:
+            return self.messages
+        return self.messages[-count:]
+    
+    def deactivate(self):
+        """Mark session as inactive"""
+        self.active = False
+    
+    def set_context(self, key: str, value: Any):
+        """Set a context value"""
+        self.context[key] = value
+    
+    def get_context(self, key: str, default: Any = None) -> Any:
+        """Get a context value"""
+        return self.context.get(key, default)
+    
+    def update_context(self, context_dict: Dict[str, Any]):
+        """Update context with a dictionary of values"""
+        self.context.update(context_dict)
+
+class ConversationManager:
+    """Manages multiple conversation sessions"""
+    
+    def __init__(self):
+        self.sessions: Dict[str, ConversationSession] = {}
+    
+    def create_session(self, user_id: str) -> ConversationSession:
+        """Create a new conversation session"""
+        session_id = str(uuid.uuid4())
+        session = ConversationSession(session_id, user_id)
+        self.sessions[session_id] = session
+        return session
+    
+    def get_session(self, session_id: str) -> Optional[ConversationSession]:
+        """Get a session by ID"""
+        return self.sessions.get(session_id)
+    
+    def get_active_sessions(self) -> List[ConversationSession]:
+        """Get all active sessions"""
+        return [session for session in self.sessions.values() if session.active]
+    
+    def cleanup_inactive_sessions(self, max_age_hours: int = 24):
+        """Clean up inactive sessions older than specified hours"""
+        current_time = datetime.now()
+        sessions_to_remove = []
+        
+        for session_id, session in self.sessions.items():
+            age = (current_time - session.last_active_time).total_seconds() / 3600
+            if not session.active and age > max_age_hours:
+                sessions_to_remove.append(session_id)
+        
+        for session_id in sessions_to_remove:
+            del self.sessions[session_id]
+    
+    def close_session(self, session_id: str):
+        """Close a session by marking it inactive"""
+        session = self.get_session(session_id)
+        if session:
+            session.deactivate()
 
 class ConversationContext:
     """Manages conversation context and history"""
@@ -94,12 +188,13 @@ class ChatInterface:
         self.orchestrator = orchestrator
         self.certainty_framework = CertaintyFramework()
         self.context = ConversationContext()
+        self.conversation_manager = ConversationManager()
         self.is_running = False
         self.approval_pending = False
         self.pending_actions: List[Dict[str, Any]] = []
         
-    async def start_conversation(self):
-        """Start the interactive conversation"""
+    async def start_interactive_conversation(self):
+        """Start the interactive conversation (original method)"""
         self.is_running = True
         
         welcome_message = ConversationMessage(
@@ -517,6 +612,100 @@ class ChatInterface:
         ]
         self.context.current_task = data.get("task_context")
 
+    async def start_conversation(self, user_id: str) -> Dict[str, Any]:
+        """Start a new conversation session for a user"""
+        session = self.conversation_manager.create_session(user_id)
+        
+        welcome_message = ConversationMessage(
+            id=self._generate_message_id(),
+            type=MessageType.SYSTEM,
+            content="Welcome to the Intelligent Agent System! How can I help you today?",
+            timestamp=datetime.now()
+        )
+        
+        session.add_message(welcome_message)
+        
+        return {
+            "status": "success",
+            "session_id": session.session_id,
+            "message": "Conversation started successfully"
+        }
+    
+    async def send_message(self, session_id: str, message: str) -> Dict[str, Any]:
+        """Send a message in a conversation session"""
+        session = self.conversation_manager.get_session(session_id)
+        if not session:
+            return {"status": "error", "message": "Session not found"}
+        
+        # Create user message
+        user_message = ConversationMessage(
+            id=self._generate_message_id(),
+            type=MessageType.USER,
+            content=message,
+            timestamp=datetime.now()
+        )
+        session.add_message(user_message)
+        
+        # Process with orchestrator (mock response for now)
+        if hasattr(self.orchestrator, 'process_user_message'):
+            response_data = await self.orchestrator.process_user_message(message, session.context)
+        else:
+            response_data = {
+                "response": "I understand your message. I'm processing it with the agent team.",
+                "agent_id": "assistant",
+                "confidence": 0.8
+            }
+        
+        # Create agent response message
+        agent_message = ConversationMessage(
+            id=self._generate_message_id(),
+            type=MessageType.AGENT,
+            content=response_data["response"],
+            timestamp=datetime.now(),
+            agent_id=response_data.get("agent_id", "assistant")
+        )
+        session.add_message(agent_message)
+        
+        return {
+            "status": "success",
+            "message_id": user_message.id,
+            "response": {
+                "content": response_data["response"],
+                "agent_id": response_data.get("agent_id", "assistant"),
+                "confidence": response_data.get("confidence", 0.8)
+            }
+        }
+    
+    async def get_conversation_history(self, session_id: str) -> Dict[str, Any]:
+        """Get conversation history for a session"""
+        session = self.conversation_manager.get_session(session_id)
+        if not session:
+            return {"status": "error", "message": "Session not found"}
+        
+        messages = []
+        for msg in session.get_message_history():
+            messages.append(msg.to_dict())
+        
+        return {
+            "status": "success",
+            "session_id": session_id,
+            "messages": messages
+        }
+    
+    async def end_conversation(self, session_id: str) -> Dict[str, Any]:
+        """End a conversation session"""
+        session = self.conversation_manager.get_session(session_id)
+        if not session:
+            return {"status": "error", "message": "Session not found"}
+        
+        self.conversation_manager.close_session(session_id)
+        
+        return {
+            "status": "success",
+            "session_id": session_id,
+            "ended": True
+        }
+        
 # Example usage
 async def main():
     """Example usage of the chat interface"""
